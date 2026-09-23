@@ -89,7 +89,6 @@ def stroop_person_sessions(trials: pd.DataFrame, co2: dict[str, pd.DataFrame]) -
         rows.append(r)
     d = pd.DataFrame(rows).sort_values(["student_id", "t0"])
     d["test_no"] = d.groupby("student_id").cumcount() + 1  # 第幾次做 Stroop（練習效應）
-    d["student"] = d.student_id.map(pseudonyms(d.student_id))
     return d.reset_index(drop=True)
 
 
@@ -98,6 +97,52 @@ def add_trial_env(trials: pd.DataFrame, ps: pd.DataFrame) -> pd.DataFrame:
         c for c in ps.columns if c.split("_")[0] in ("co2", "temp", "rh")]
     t = trials.rename(columns={"Student_ID": "student_id"}).merge(ps[keep], on=["block", "student_id"])
     return t
+
+
+# ---------------------------------------------------------------- 自覺疲勞量表
+FATIGUE_CSV = Path(os.environ.get("FATIGUE_CSV", PRIVATE_DIR / "fatigue_responses.csv"))
+SLEEP_HOURS = {"不到 6 小時": 5.0, "6～8 小時": 7.0, "8 小時以上": 8.5}
+FATIGUE_WINDOW = pd.Timedelta(minutes=3)  # 計畫書：表單繳交時間往前推 3 分鐘
+
+
+def load_fatigue(co2: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """每份問卷一列。時間用表單的 Timestamp（學生自填的「幾點幾分」有 AM/PM 填錯的情形）。"""
+    raw = pd.read_csv(FATIGUE_CSV, encoding="utf-8-sig", dtype=str)
+    cols = list(raw.columns)
+    attn = next(c for c in cols if "非常不同意" in c)
+    now = next(c for c in cols if "我現在的疲勞程度" in c)
+    fss_items = [c for c in cols[cols.index(now) + 1:] if c != attn]  # FSS 9 題（過去 24 小時）
+    d = pd.DataFrame({
+        "student_id": raw[cols[1]].str.strip(),
+        "time": pd.to_datetime(raw["Timestamp"], format="%m/%d/%Y %H:%M:%S"),
+        "sleep_h": raw[cols[2]].map(SLEEP_HOURS),
+        "sleep_q": raw[cols[3]].astype(float),
+        "fatigue_now": raw[now].astype(float),
+        "fss": raw[fss_items].astype(float).mean(axis=1),
+        "attention_ok": raw[attn].astype(float) == 1,
+    })
+    d["block"] = d.time.dt.strftime("%m-%d") + np.where(d.time.dt.hour < 12, " AM", " PM")
+    for s, c in co2.items():
+        w = d.time.apply(lambda t: window_mean(c, t - FATIGUE_WINDOW, t, pad=pd.Timedelta(0)))
+        d[f"co2_{s}"], d[f"temp_{s}"], d[f"rh_{s}"] = w.co2, w.temp, w.rh
+    d = d.sort_values(["student_id", "time"])
+    d["resp_no"] = d.groupby("student_id").cumcount() + 1
+    return d.reset_index(drop=True)
+
+
+# ---------------------------------------------------------------- 裝置 ↔ 學生
+def load_device_map() -> pd.DataFrame:
+    """研究者現場紀錄：每節課每位學生配戴的裝置（A–F = 貼片、nP = 手環、P = 隨機手環）。"""
+    return pd.read_csv(PRIVATE_DIR / "device_map.csv", dtype=str)
+
+
+def load_patch_letters() -> pd.DataFrame | None:
+    """貼片字母 → 貼片編號（E2512-03 等）。還沒提供時回傳 None，跳過逐人生理分析。"""
+    f = PRIVATE_DIR / "patch_letters.csv"
+    if not f.exists():
+        return None
+    m = pd.read_csv(f, dtype=str).dropna(subset=["patch"])
+    return m if len(m) else None
 
 
 # ---------------------------------------------------------------- 心率

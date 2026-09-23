@@ -12,6 +12,7 @@ from scipy import stats
 import data as D
 import figures as F
 import models as M
+import seating_test as ST
 
 RES = D.ROOT / "results"
 EXPOSURES = ["Wa1", "Wa2", "Avg"]  # Avg = 兩台平均，代表「整間教室」
@@ -81,7 +82,14 @@ def main():
 
     # ---------- 3. Stroop
     trials = D.load_stroop_trials()
+    fat = D.load_fatigue(co2)
+    # 假名：用所有資料來源的學生代碼聯集編號，兩份資料的 S01 才會是同一個人
+    pseudo = D.pseudonyms(set(trials.Student_ID) | set(fat.student_id))
     ps = add_exposures(D.stroop_person_sessions(trials, co2))
+    ps["student"] = ps.student_id.map(pseudo)
+    # 睡眠（試前調查）併進 Stroop：同一區塊的問卷
+    sleep = fat[fat.attention_ok].groupby(["student_id", "block"])[["sleep_h", "sleep_q", "fatigue_now"]].mean()
+    ps = ps.merge(sleep, left_on=["student_id", "block"], right_index=True, how="left")
     ps.to_csv(D.PRIVATE_DIR / "stroop_person_sessions.csv", index=False, encoding="utf-8-sig")
     both = ps.dropna(subset=["co2_Wa1", "co2_Wa2"]).reset_index(drop=True)
 
@@ -92,6 +100,11 @@ def main():
     # 敏感度：再控制溫濕度
     res.append(compare(both, "rt_mean", "student", "test_no", "Stroop 平均反應時間（+溫濕度）", "人次",
                        cv=False, extra=" + temp_{s} + rh_{s}"))
+
+    # 敏感度：再控制睡眠時數與品質（計畫書的共變量）
+    bs = both.dropna(subset=["sleep_h", "sleep_q"]).reset_index(drop=True)
+    res.append(compare(bs, "rt_mean", "student", "test_no + sleep_h + sleep_q", "Stroop 平均反應時間（+睡眠）",
+                       "人次", cv=False))
 
     tr = D.add_trial_env(trials, ps)
     tr = add_exposures(tr.dropna(subset=["co2_Wa1", "co2_Wa2"]))
@@ -120,6 +133,34 @@ def main():
                  "n": len(wa1_all), "groups": wa1_all.student.nunique(), **M.coef_row(r, "co2h_Wa1")}
     res.append(pd.DataFrame([wa1_extra]))
 
+    # ---------- 3b. 自覺疲勞量表
+    fat["student"] = fat.student_id.map(pseudo)
+    fat = add_exposures(fat)
+    fat.to_csv(D.PRIVATE_DIR / "fatigue_with_co2.csv", index=False, encoding="utf-8-sig")
+    fat_ok = fat[fat.attention_ok]
+    fboth = fat_ok.dropna(subset=["co2_Wa1", "co2_Wa2"]).reset_index(drop=True)
+    fcov = "resp_no + sleep_h + sleep_q"
+    res.append(compare(fboth, "fatigue_now", "student", fcov, "自覺疲勞（現在，1–7）", "人次"))
+    # 負對照：FSS 問的是「過去 24 小時」，不該跟填寫當下的 CO2 有關；若有關代表有別的混淆
+    res.append(compare(fboth, "fss", "student", fcov, "FSS 過去 24 小時（負對照）", "人次", cv=False))
+    # 上午／下午能不能解釋掉：加入 slot
+    fboth["pm"] = (fboth.block.str.endswith("PM")).astype(int)
+    res.append(compare(fboth, "fatigue_now", "student", fcov + " + pm", "自覺疲勞（+上午/下午）", "人次", cv=False))
+    fwa1 = fat_ok.dropna(subset=["co2_Wa1"]).reset_index(drop=True)
+    fwa1["pm"] = (fwa1.block.str.endswith("PM")).astype(int)
+    for cov, lab in [(fcov, "自覺疲勞（Wa1 全部場次）"), (fcov + " + pm", "自覺疲勞（Wa1 全部場次，+上午/下午）")]:
+        r = M.fit_lmm(f"fatigue_now ~ co2h_Wa1 + {cov}", fwa1, "student")
+        res.append(pd.DataFrame([{"outcome": lab, "unit": "人次", "exposure": "Wa1", "n": len(fwa1),
+                                  "groups": fwa1.student.nunique(), **M.coef_row(r, "co2h_Wa1")}]))
+
+    # ---------- 3c. 座位表有沒有用
+    seat_ex = pd.DataFrame([ST.exhaustive(both, "rt_mean", "test_no"),
+                            ST.exhaustive(fboth, "fatigue_now", fcov)])
+    seat_ex.round(4).to_csv(RES / "seating_exhaustive.csv", index=False, encoding="utf-8-sig")
+    seat_sim = pd.concat([ST.simulate(both, "rt_mean", "test_no"),
+                          ST.simulate(fboth, "fatigue_now", fcov, betas=(0, 0.1, 0.2, 0.4))])
+    seat_sim.round(3).to_csv(RES / "seating_simulation.csv", index=False, encoding="utf-8-sig")
+
     # ---------- 4. 心率（5 分鐘）與 HRV
     hr = D.load_hr_seconds()
     hw = add_exposures(D.add_window_env(D.hr_windows(hr), co2))
@@ -137,6 +178,27 @@ def main():
     res.append(compare(rwb, "log_rmssd", "wearer", "elapsed_min", "HRV log(RMSSD)，控制上課經過時間", "5 分鐘",
                        repeats=5))
 
+    # ---------- 4b. 逐人生理（需要貼片字母 → 編號對照；沒有就跳過）
+    letters = D.load_patch_letters()
+    if letters is not None:
+        dm = D.load_device_map().merge(letters, left_on=["block", "device"], right_on=["block", "letter"])
+        dm["wearer"] = dm.patch + " " + dm.block
+        dm["student"] = dm.student_id.map(pseudo)
+        pw = hwb.merge(dm[["wearer", "student"]], on="wearer")
+        res.append(compare(pw, "hr", "student", "elapsed_min", "貼片心率，逐人（控制上課經過時間）", "5 分鐘",
+                           cv=False))
+        # 施測前 5 分鐘的心率當中介變項：CO2 → 心率 → 反應時間
+        pre = hw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
+        pre = pre.merge(ps[["student_id", "block", "t0"]], on=["student_id", "block"])
+        pre = pre[(pre.win >= pre.t0 - pd.Timedelta(minutes=10)) & (pre.win < pre.t0)]
+        hr_pre = pre.groupby(["student_id", "block"]).hr.mean().rename("hr_pre")
+        med = both.merge(hr_pre, left_on=["student_id", "block"], right_index=True).reset_index(drop=True)
+        if med.student.nunique() >= 3:
+            res.append(compare(med, "rt_mean", "student", "test_no + hr_pre", "反應時間（+施測前心率）", "人次",
+                               cv=False))
+    else:
+        print("※ 沒有 data/private/patch_letters.csv，跳過逐人生理分析")
+
     allres = pd.concat(res, ignore_index=True)
     allres.round(4).to_csv(RES / "model_comparison.csv", index=False, encoding="utf-8-sig")
 
@@ -147,6 +209,9 @@ def main():
                                   rt_mean=("rt_mean", "mean"), rt_sd=("rt_mean", "std"),
                                   interference=("interference", "mean"), accuracy=("accuracy", "mean"),
                                   mean_test_no=("test_no", "mean")).reset_index()
+    fb = fat_ok.groupby("block").agg(fatigue_n=("fatigue_now", "size"), fatigue_now=("fatigue_now", "mean"),
+                                     fss=("fss", "mean"))
+    blk = blk.merge(fb, left_on="block", right_index=True, how="left")
     hrb = hw.groupby("session").agg(hr_windows=("hr", "size"), wearers=("wearer", "nunique"), hr_mean=("hr", "mean"))
     blk = blk.merge(hrb, left_on="block", right_index=True, how="left")
     blk.round(2).to_csv(RES / "session_summary.csv", index=False, encoding="utf-8-sig")
@@ -156,7 +221,7 @@ def main():
     conf["slot_vs_co2_Wa1"] = np.corrcoef(both.co2_Wa1, (both.slot == "PM").astype(int))[0, 1]
     pd.Series(conf, name="r").round(3).to_csv(RES / "confounding_check.csv", encoding="utf-8-sig")
 
-    F.make_all(co2, pair, blk, hw, allres, trials)
+    F.make_all(co2, pair, blk, hw, allres, trials, seat_sim)
     print(allres.round(3).to_string())
 
 

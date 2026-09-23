@@ -95,7 +95,7 @@ def stroop_vs_co2(blk):
 
 
 def model_comparison(res):
-    keep = ["Stroop 平均反應時間 (ms)", "Stroop 干擾分數 (ms)", "心率 (bpm)，控制上課經過時間",
+    keep = ["Stroop 平均反應時間 (ms)", "Stroop 干擾分數 (ms)", "自覺疲勞（現在，1–7）", "心率 (bpm)，控制上課經過時間",
             "HRV log(RMSSD)，控制上課經過時間"]
     r = res[res.outcome.isin(keep)]
     fig, axes = plt.subplots(1, len(keep), figsize=(4 * len(keep), 4))
@@ -130,7 +130,44 @@ def hr_vs_co2(hw):
     _save(fig, "hr_vs_co2.png")
 
 
-def make_all(co2, pair, blk, hw, res, trials):
+def fatigue_vs_co2(blk):
+    b = blk.dropna(subset=["co2_Wa1", "fatigue_now"])
+    fig, (a, c) = plt.subplots(1, 2, figsize=(11, 4.4))
+    for _, r in b.iterrows():
+        x = np.nanmean([r.co2_Wa1, r.co2_Wa2])
+        pm = r.block.endswith("PM")
+        a.scatter(x, r.fatigue_now, s=70, color=COL["Avg"] if pm else "#fcfcfb", edgecolors=COL["Avg"], lw=2,
+                  zorder=3)
+        a.annotate(r.block, (x, r.fatigue_now), textcoords="offset points", xytext=(6, 6), fontsize=8, color=MUTED)
+        c.scatter(x, r.fss, s=70, color=MUTED if pm else "#fcfcfb", edgecolors=MUTED, lw=2, zorder=3)
+    a.set(xlabel="填寫前 3 分鐘 CO₂（兩台平均；09-21 AM 只有 Wa1）", ylabel="平均自覺疲勞（1–7）",
+          title="現在的疲勞程度（實心 = 下午，空心 = 上午）")
+    c.set(xlabel="填寫前 3 分鐘 CO₂", ylabel="平均 FSS（1–7）", title="負對照：FSS 問「過去 24 小時」", ylim=a.get_ylim())
+    fig.tight_layout()
+    _save(fig, "fatigue_vs_co2.png")
+
+
+def seating_simulation(sim):
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    for ax, (o, g) in zip(axes, sim.groupby("outcome", sort=False)):
+        x = np.arange(len(g))
+        ax.bar(x - 0.18, g.pct_seating_wins_by_2, width=0.34, color=COL["Wa2"], label="用座位表明顯較好（ΔAIC>2）")
+        ax.bar(x + 0.18, g.pct_avg_detects_effect, width=0.34, color=COL["Avg"], label="不用座位表也測得到效應（p<.05）")
+        ax.set_xticks(x, [f"{v:g}" for v in g.true_beta_per_100ppm])
+        unit = "ms" if o == "rt_mean" else "分"
+        ax.set(xlabel=f"模擬的真實效應（每 100 ppm，{unit}）", ylabel="模擬中的比例 (%)", ylim=(0, 100),
+               title="反應時間" if o == "rt_mean" else "自覺疲勞")
+        ax.grid(axis="x", visible=False)
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", bbox_to_anchor=(0.5, -0.08), ncol=2, frameon=False)
+    fig.suptitle("假設「學生吸到的是最近那台」為真：座位表能幫上忙的機率", y=1.03, color=INK)
+    fig.tight_layout()
+    _save(fig, "seating_simulation.png")
+
+
+def make_all(co2, pair, blk, hw, res, trials, seat_sim):
+    fatigue_vs_co2(blk)
+    seating_simulation(seat_sim)
     co2_timeline(co2, trials)
     sensor_agreement(pair)
     stroop_vs_co2(blk)
