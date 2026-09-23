@@ -1,0 +1,6 @@
+# 逐人資料（含 Stroop 學生代碼與心電資料）依 REC 核定之保管方式不可上傳公開 repo
+data/private/
+*.bin
+__pycache__/
+*.pyc
+.venv/
