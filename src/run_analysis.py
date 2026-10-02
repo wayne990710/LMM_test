@@ -305,7 +305,9 @@ def main():
     prediction.main()
     import effect_sizes
     import ucf_map
+    import hrv_check
     effect_sizes.main()
+    hrv_check.main()
     ucf_map.main()
 
 

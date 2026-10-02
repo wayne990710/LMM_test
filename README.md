@@ -36,6 +36,7 @@ python src/run_analysis.py
 - `src/correlations.py`：整體與個人內 Spearman 相關矩陣
 - `src/prediction.py`：CO₂ 質量平衡擬合、通風情境模擬、疲勞預測（bootstrap 不確定性）、留一節次交叉驗證
 - `src/effect_sizes.py`：檢定選擇（尺度、常態、離群值、天花板）與效果量（Hedges' g、r_rb、LMM d₁₀₀₀，學生層級 bootstrap CI，Holm 校正）
+- `src/hrv_check.py`：檢驗每秒心率能否換算成 HRV（貼片 vs 手環）
 - `src/ucf_map.py`：UCF 論證路線圖
 - `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 

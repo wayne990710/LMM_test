@@ -463,3 +463,31 @@ def ucf_map(rows: dict):
                                      color="#b5b3ad", lw=1.0, zorder=1))
     fig.tight_layout()
     _save(fig, "ucf_map.png")
+
+
+def hrv_conversion(m: pd.DataFrame, out: dict, polar_rmssd: np.ndarray):
+    """左：貼片同一 5 分鐘窗的真 RMSSD vs 由每秒心率換算；右：三種來源的 RMSSD 分布（手環只有平滑過的每秒心率）。"""
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(13, 5.6), gridspec_kw={"width_ratios": [1.1, 1]})
+    ax.scatter(m.rmssd, m.rmssd_from_hr, s=30, color=COL["Wa1"], alpha=0.7, edgecolors="#fcfcfb")
+    lim = [4, max(m.rmssd.max(), m.rmssd_from_hr.max()) * 1.2]
+    ax.plot(lim, lim, color=MUTED, ls="--", lw=1)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set(xlim=lim, ylim=lim, xlabel="真 RMSSD：貼片逐拍 RR (ms)", ylabel="由貼片每秒心率換算的 RMSSD (ms)")
+    ax.set_title(f"貼片：{out['windows']} 窗、{out['wearers']} 個配戴節次\nSpearman ρ = {out['spearman_rho']:.2f}，"
+                 f"換算值 ≈ 真值 × {out['median_ratio_derived_over_true']:.2f}", fontsize=10.5)
+    groups = [("貼片\n逐拍 RR（真）", m.rmssd.values, COL["Avg"]),
+              ("貼片\n每秒心率換算", m.rmssd_from_hr.values, COL["Wa1"]),
+              ("手環\n每秒心率換算", polar_rmssd, COL["Wa2"])]
+    for i, (lab, v, c) in enumerate(groups):
+        jit = np.random.default_rng(i).uniform(-0.16, 0.16, len(v))
+        bx.scatter(np.full(len(v), i) + jit, v, s=10, color=c, alpha=0.35, edgecolors="none")
+        bx.hlines(np.median(v), i - 0.3, i + 0.3, color=INK, lw=2.5)
+        bx.text(i, np.median(v) * 1.25, f"{np.median(v):.1f}", ha="center", fontsize=10, color=INK,
+                fontweight="bold")
+    bx.set_yscale("log")
+    bx.set_xticks(range(3), [g[0] for g in groups])
+    bx.set(ylabel="5 分鐘 RMSSD (ms，對數尺度)", title="手環的平滑心率把心跳間的變化抹掉了（橫線＝中位數）")
+    bx.grid(axis="x", visible=False)
+    fig.tight_layout()
+    _save(fig, "hrv_conversion.png")
