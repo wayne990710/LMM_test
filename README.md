@@ -2,7 +2,9 @@
 
 專題研究「高中教室二氧化碳濃度對學生認知表現影響之預測模型」的初步資料檢核。
 
-**完整結果報告：[REPORT.md](REPORT.md)**（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
+**主報告（UCF 整合、無母數、Cohen's d）：[UCF_REPORT.md](UCF_REPORT.md)**
+
+技術細節：[REPORT.md](REPORT.md)（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
 
 圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。
 
@@ -33,6 +35,8 @@ python src/run_analysis.py
 - `src/path_analysis.py`：徑路分析（piecewise SEM，LMM＋以學生為單位的 cluster bootstrap、Fisher's C）
 - `src/correlations.py`：整體與個人內 Spearman 相關矩陣
 - `src/prediction.py`：CO₂ 質量平衡擬合、通風情境模擬、疲勞預測（bootstrap 不確定性）、留一節次交叉驗證
+- `src/effect_sizes.py`：檢定選擇（尺度、常態、離群值、天花板）與效果量（Hedges' g、r_rb、LMM d₁₀₀₀，學生層級 bootstrap CI，Holm 校正）
+- `src/ucf_map.py`：UCF 論證路線圖
 - `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 
 `data/private/patch_letters.csv`（貼片字母 → 編號，範本見 `patch_letters_TEMPLATE.csv`）存在時，

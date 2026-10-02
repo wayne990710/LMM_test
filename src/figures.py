@@ -352,3 +352,114 @@ def prediction_simulation(traj: dict, sc: pd.DataFrame, fits: pd.DataFrame):
     ax.grid(axis="y", visible=False)
     fig.tight_layout()
     _save(fig, "prediction_simulation.png")
+
+
+def assumption_qq(qq: dict, checks: pd.DataFrame):
+    """每個結果變項的「高 − 低 CO2」配對差值 Q-Q 圖；標題列出 Shapiro p 與檢定選擇。"""
+    keys = list(qq)
+    ncol = 4
+    nrow = int(np.ceil(len(keys) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(4.3 * ncol, 3.9 * nrow), squeeze=False)
+    for ax in axes.flat[len(keys):]:
+        ax.set_visible(False)
+    for ax, k in zip(axes.flat, keys):
+        v = np.sort(np.asarray(qq[k], float))
+        c = checks[checks.outcome == k].iloc[0]
+        if len(v) >= 3:
+            th = stats_norm_ppf((np.arange(1, len(v) + 1) - 0.375) / (len(v) + 0.25))
+            ax.scatter(th, v, s=42, color=COL["Avg"], edgecolors="#fcfcfb", zorder=3)
+            sl, ic = np.polyfit(th, v, 1)
+            xx = np.array([th.min(), th.max()])
+            ax.plot(xx, ic + sl * xx, color=MUTED, lw=1.2, ls="--")
+        must = c.decision.startswith("必須")
+        ax.set_title(f"{k}\nn = {int(c.n_students)}；SW p = {c.shapiro_diff_p:.2f} → {c.decision}",
+                     fontsize=9.5, color=COL["Wa2"] if must else INK)
+        ax.set_xlabel("常態理論分位數", fontsize=9)
+        ax.set_ylabel("高 − 低 CO₂ 差值", fontsize=9)
+    fig.suptitle("步驟 1：配對差值的常態性檢查（點偏離虛線＝偏離常態；橘色標題＝必須用無母數）", color=INK, y=1.01)
+    fig.tight_layout()
+    _save(fig, "assumption_qq.png")
+
+
+def stats_norm_ppf(p):
+    from scipy.stats import norm
+    return norm.ppf(p)
+
+
+def effect_size_forest(eff: pd.DataFrame):
+    """左：Hedges' g_av（Cohen's d 的小樣本校正）；右：配對等級二系列相關 r_rb。誤差線＝學生層級 bootstrap 95% CI。"""
+    e = eff[eff.n_students >= 5].dropna(subset=["g_av"]).reset_index(drop=True)  # n < 5 的 CI 不可信，不畫
+    fam_col = {"主要": INK, "敏感度": COL["Wa1"], "負對照": MUTED, "探索": COL["Wa2"]}
+    fig, axes = plt.subplots(1, 2, figsize=(15.5, 0.62 * len(e) + 2.2), sharey=True,
+                             gridspec_kw={"width_ratios": [1.25, 1]})
+    y = np.arange(len(e))
+    for ax, (k, lim, lab) in zip(axes, [("g_av", 2.2, "Hedges' g_av（高 − 低 CO₂）"),
+                                        ("r_rb", 1.05, "配對等級二系列相關 r_rb")]):
+        if k == "g_av":
+            for lo, hi, a in [(0.2, 0.5, 0.03), (0.5, 0.8, 0.06), (0.8, lim, 0.09)]:
+                for sgn in (1, -1):
+                    ax.axvspan(sgn * lo, sgn * hi, color=COL["Avg"], alpha=a, lw=0)
+            for v, t in [(0.2, "小"), (0.5, "中"), (0.8, "大")]:
+                ax.text(v + 0.03, len(e) - 0.45, t, fontsize=8.5, color=MUTED)
+        ax.axvline(0, color=MUTED, lw=1)
+        for i, r in e.iterrows():
+            col = fam_col.get(r.family, INK)
+            ax.plot([r[f"{k}_ci_low"], r[f"{k}_ci_high"]], [i, i], color=col, lw=2.6, solid_capstyle="round")
+            ax.scatter(r[k], i, s=70, color=col, edgecolors="#fcfcfb", zorder=3)
+        ax.set_xlim(-lim, lim)
+        ax.set_xlabel(lab)
+        ax.grid(axis="y", visible=False)
+    labels = [f"{r.outcome}（n = {int(r.n_students)}）" for _, r in e.iterrows()]
+    axes[0].set_yticks(y, labels)
+    axes[0].invert_yaxis()
+    for i, r in e.iterrows():
+        holm = f"，Holm p = {r.wilcoxon_p_holm:.3f}" if pd.notna(r.get("wilcoxon_p_holm")) else ""
+        axes[1].text(1.08, i, f"g = {r.g_av:+.2f}（{r.magnitude_g_av}）  Wilcoxon p = {r.wilcoxon_p:.3f}{holm}",
+                     transform=axes[1].get_yaxis_transform(), va="center", fontsize=9, color=INK)
+    handles = [plt.Line2D([], [], color=c, lw=3, label=f) for f, c in fam_col.items() if f in set(e.family)]
+    axes[0].legend(handles=handles, frameon=False, fontsize=9, loc="lower left", ncol=4,
+                   bbox_to_anchor=(0, -0.32 if len(e) < 6 else -0.2))
+    fig.suptitle("步驟 3：效果量（每人比較 CO₂ ≥ 1000 與 < 1000 ppm；誤差線＝以學生為單位 bootstrap 95% CI）",
+                 color=INK, y=1.0)
+    fig.tight_layout()
+    _save(fig, "effect_size_forest.png")
+
+
+
+def ucf_map(rows: dict):
+    """UCF 論證路線圖：上＝中心論點（Unity）；中＝分析步驟，前一步的輸出是下一步的輸入（Flow）；
+    下＝研究問題，連線表示哪一步提供論據（Coherence）。"""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(18, 7.4))
+    ax.set_xlim(0, 18)
+    ax.set_ylim(0, 7.4)
+    ax.axis("off")
+
+    def box(x, y, w, h, title, body, ec=MUTED, fc="#fcfcfb", lw=1.4, tc=INK):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.12", fc=fc, ec=ec,
+                                    lw=lw, zorder=2))
+        ax.text(x + w / 2, y + h - 0.22, title, ha="center", va="top", fontsize=10.5, fontweight="bold",
+                color=tc, zorder=3)
+        ax.text(x + w / 2, y + h - 0.62, body, ha="center", va="top", fontsize=8.8, color=INK, zorder=3,
+                linespacing=1.45)
+
+    box(0.4, 6.05, 17.2, 1.3, "Unity｜中心論點", rows["thesis"], ec=INK, lw=2)
+    xs = [0.4 + i * 2.93 for i in range(6)]
+    for i, (x, (t, b)) in enumerate(zip(xs, rows["steps"])):
+        box(x, 3.3, 2.6, 2.05, t, b, ec=COL["Wa1"], lw=1.6)
+        if i < 5:
+            ax.add_patch(FancyArrowPatch((x + 2.6, 4.32), (xs[i + 1], 4.32), arrowstyle="-|>", mutation_scale=16,
+                                         color=COL["Wa1"], lw=2, zorder=1))
+    ax.text(9, 5.62, "Flow｜每一步的輸出就是下一步的輸入", ha="center", fontsize=10, color=COL["Wa1"])
+    qx = [0.4, 6.27, 12.13]
+    for x, (t, b, verdict) in zip(qx, rows["questions"]):
+        col = {"支持": COL["Avg"], "部分": COL["Wa2"], "未能回答": MUTED}[verdict]
+        box(x, 0.1, 5.47, 1.85, t, b, ec=col, lw=2.2, tc=col)
+    ax.text(0.4, 2.62, "Coherence｜連線＝該步驟為此研究問題提供論據", ha="left", fontsize=10, color=MUTED)
+    for si, qi in rows["links"]:
+        x0 = xs[si] + 1.3
+        x1 = qx[qi] + 2.735
+        ax.add_patch(FancyArrowPatch((x0, 3.3), (x1, 1.95), arrowstyle="-|>", mutation_scale=11,
+                                     color="#b5b3ad", lw=1.0, zorder=1))
+    fig.tight_layout()
+    _save(fig, "ucf_map.png")

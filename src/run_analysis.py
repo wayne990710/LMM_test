@@ -303,6 +303,10 @@ def main():
     path_analysis.main()
     correlations.main()
     prediction.main()
+    import effect_sizes
+    import ucf_map
+    effect_sizes.main()
+    ucf_map.main()
 
 
 if __name__ == "__main__":
