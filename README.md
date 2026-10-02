@@ -2,7 +2,7 @@
 
 專題研究「高中教室二氧化碳濃度對學生認知表現影響之預測模型」的初步資料檢核。
 
-**結論與解讀請看 [REPORT.md](REPORT.md)。**
+**最新數值（09-17 ～ 10-02）：[FACTS.md](FACTS.md)。**較早的解讀（09-17 ～ 09-23）：[REPORT.md](REPORT.md)。
 
 ## 資料來源
 | 資料 | 位置 | 是否在本 repo |
@@ -11,7 +11,7 @@
 | Stroop 逐題紀錄 | `../cognitive_performance_test/output/` | ❌ 含學生班級座號，依 REC 規定不可上傳 |
 | 手環／心電貼片心率、RR | `../ECG/data/` | ❌ 研究參與者生理資料 |
 | 自覺疲勞量表（Google 表單匯出） | `data/private/fatigue_responses.csv` | ❌ 含學生代碼 |
-| 裝置配戴紀錄 | `data/private/device_map.csv`、`patch_letters.csv` | ❌ 可對應到個人 |
+| 研究代碼對照表（裝置、冷氣、人數） | `data/private/code_table.csv`（字母代號對照：`patch_letters.csv`） | ❌ 可對應到個人 |
 
 兩個姊妹資料夾的路徑可用環境變數 `STROOP_DIR`、`ECG_DIR` 覆寫。
 執行時產生的逐人資料表放在 `data/private/`（已 gitignore）。

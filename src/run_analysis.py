@@ -178,26 +178,35 @@ def main():
     res.append(compare(rwb, "log_rmssd", "wearer", "elapsed_min", "HRV log(RMSSD)，控制上課經過時間", "5 分鐘",
                        repeats=5))
 
-    # ---------- 4b. 逐人生理（需要貼片字母 → 編號對照；沒有就跳過）
+    # ---------- 4b. 逐人生理：研究代碼對照表上有寫裝置編號的節次（09-24 起），字母代號需另附對照
+    dm, block_info = D.load_code_table()
+    dm["dev"] = dm.device.map(D.device_column)
     letters = D.load_patch_letters()
     if letters is not None:
-        dm = D.load_device_map().merge(letters, left_on=["block", "device"], right_on=["block", "letter"])
-        dm["wearer"] = dm.patch + " " + dm.block
-        dm["student"] = dm.student_id.map(pseudo)
-        pw = hwb.merge(dm[["wearer", "student"]], on="wearer")
-        res.append(compare(pw, "hr", "student", "elapsed_min", "貼片心率，逐人（控制上課經過時間）", "5 分鐘",
-                           cv=False))
-        # 施測前 5 分鐘的心率當中介變項：CO2 → 心率 → 反應時間
-        pre = hw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
-        pre = pre.merge(ps[["student_id", "block", "t0"]], on=["student_id", "block"])
-        pre = pre[(pre.win >= pre.t0 - pd.Timedelta(minutes=10)) & (pre.win < pre.t0)]
-        hr_pre = pre.groupby(["student_id", "block"]).hr.mean().rename("hr_pre")
-        med = both.merge(hr_pre, left_on=["student_id", "block"], right_index=True).reset_index(drop=True)
-        if med.student.nunique() >= 3:
-            res.append(compare(med, "rt_mean", "student", "test_no + hr_pre", "反應時間（+施測前心率）", "人次",
-                               cv=False))
-    else:
-        print("※ 沒有 data/private/patch_letters.csv，跳過逐人生理分析")
+        lm = dict(zip(letters.block + "|" + letters.letter, letters.patch))
+        dm["dev"] = dm.dev.fillna((dm.block + "|" + dm.device).map(lm))
+    dm = dm.dropna(subset=["dev"])
+    dm["wearer"] = dm.dev + " " + dm.block
+    dm["student"] = dm.student_id.map(pseudo)
+    pw = hwb.merge(dm[["wearer", "student"]], on="wearer")
+    if pw.student.nunique() >= 3:
+        res.append(compare(pw, "hr", "student", "elapsed_min + C(device_type)", "心率，逐人（控制上課經過時間）",
+                           "5 分鐘", cv=False))
+        prw = rwb.merge(dm[["wearer", "student"]], on="wearer")
+        if prw.student.nunique() >= 3:
+            res.append(compare(prw, "log_rmssd", "student", "elapsed_min", "HRV log(RMSSD)，逐人（控制上課經過時間）",
+                               "5 分鐘", cv=False))
+    # 施測前 10 分鐘的心率：CO2 → 心率 → 反應時間
+    pre = hw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
+    pre = pre.merge(ps[["student_id", "block", "t0"]], on=["student_id", "block"])
+    pre = pre[(pre.win >= pre.t0 - pd.Timedelta(minutes=10)) & (pre.win < pre.t0)]
+    hr_pre = pre.groupby(["student_id", "block"]).hr.mean().rename("hr_pre")
+    med = both.merge(hr_pre, left_on=["student_id", "block"], right_index=True).reset_index(drop=True)
+    if med.student.nunique() >= 3:
+        res.append(compare(med, "rt_mean", "student", "test_no + hr_pre", "反應時間（+施測前心率）", "人次", cv=False))
+        r = M.fit_lmm("hr_pre ~ co2h_Avg + test_no", med, "student")
+        res.append(pd.DataFrame([{"outcome": "施測前心率 ~ CO2", "unit": "人次", "exposure": "Avg", "n": len(med),
+                                  "groups": med.student.nunique(), **M.coef_row(r, "co2h_Avg")}]))
 
     allres = pd.concat(res, ignore_index=True)
     allres.round(4).to_csv(RES / "model_comparison.csv", index=False, encoding="utf-8-sig")
@@ -211,7 +220,7 @@ def main():
                                   mean_test_no=("test_no", "mean")).reset_index()
     fb = fat_ok.groupby("block").agg(fatigue_n=("fatigue_now", "size"), fatigue_now=("fatigue_now", "mean"),
                                      fss=("fss", "mean"))
-    blk = blk.merge(fb, left_on="block", right_index=True, how="left")
+    blk = fb.reset_index().merge(blk, on="block", how="outer").merge(block_info, on="block", how="left")
     hrb = hw.groupby("session").agg(hr_windows=("hr", "size"), wearers=("wearer", "nunique"), hr_mean=("hr", "mean"))
     blk = blk.merge(hrb, left_on="block", right_index=True, how="left")
     blk.round(2).to_csv(RES / "session_summary.csv", index=False, encoding="utf-8-sig")

@@ -131,9 +131,44 @@ def load_fatigue(co2: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------- 裝置 ↔ 學生
-def load_device_map() -> pd.DataFrame:
-    """研究者現場紀錄：每節課每位學生配戴的裝置（A–F = 貼片、nP = 手環、P = 隨機手環）。"""
-    return pd.read_csv(PRIVATE_DIR / "device_map.csv", dtype=str)
+# 研究代碼對照表的欄位 → 施測區塊（同一天有兩欄時，第一欄上午、第二欄下午）
+CODE_TABLE_BLOCKS = {4: "09-17 AM", 7: "09-21 AM", 8: "09-21 PM", 9: "09-22 AM", 10: "09-22 PM",
+                     11: "09-23 AM", 12: "09-23 PM", 13: "09-24 AM", 15: "09-29 AM", 16: "09-29 PM",
+                     17: "09-30 AM", 18: "09-30 PM", 19: "10-01 AM", 20: "10-02 AM"}
+
+
+def load_code_table() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """研究者現場紀錄（研究代碼對照表）。
+
+    回傳 (device_map, block_info)：
+    device_map：student_id, block, device（A–F = 當時的貼片代號、nP = 手環、2512-03 = 貼片編號、P = 隨機手環）
+    block_info：block, ac（冷氣註記）, headcount（現場人數）
+    """
+    raw = pd.read_csv(PRIVATE_DIR / "code_table.csv", header=None, dtype=str)
+    rows, info = [], []
+    for _, r in raw.iterrows():
+        sid = str(r[0]).strip()
+        if sid.isdigit():
+            for col, blk in CODE_TABLE_BLOCKS.items():
+                v = r[col]
+                if isinstance(v, str) and v.strip():
+                    rows.append({"student_id": sid, "block": blk, "device": v.strip()})
+    ac_row = raw[raw[0].isna() & raw.iloc[:, 13:].notna().any(axis=1)].iloc[0]
+    hc_row = raw[raw[0] == "現場人數"].iloc[0]
+    for col, blk in CODE_TABLE_BLOCKS.items():
+        info.append({"block": blk, "ac": ac_row[col] if isinstance(ac_row[col], str) else "",
+                     "headcount": float(hc_row[col]) if isinstance(hc_row[col], str) else np.nan})
+    return pd.DataFrame(rows), pd.DataFrame(info)
+
+
+def device_column(device: str) -> str | None:
+    """對照表上的裝置寫法 → 心率資料的欄名（hr_ 後面那段）。字母代號與隨機手環 P 無法對應，回傳 None。"""
+    import re
+    if re.fullmatch(r"\d+P", device):
+        return device
+    if re.fullmatch(r"\d{4}-\d{2}", device):
+        return "E" + device
+    return None
 
 
 def load_patch_letters() -> pd.DataFrame | None:

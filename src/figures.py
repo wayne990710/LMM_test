@@ -32,8 +32,13 @@ def _save(fig, name):
 
 
 def co2_timeline(co2, trials):
-    sessions = ["09-21 AM", "09-21 PM", "09-22 AM", "09-22 PM", "09-23 AM", "09-23 PM"]
-    fig, axes = plt.subplots(2, 3, figsize=(15, 7.5), sharey=True)
+    allc = pd.concat(co2.values())
+    sessions = sorted(set(D._session_id(allc[allc.time >= "2026-09-21"].time)))
+    ncol = 4
+    nrow = int(np.ceil(len(sessions) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(4.2 * ncol, 3.6 * nrow), sharey=True, squeeze=False)
+    for ax in axes.flat[len(sessions):]:
+        ax.set_visible(False)
     for ax, sess in zip(axes.flat, sessions):
         for s, c in co2.items():
             g = c[D._session_id(c.time) == sess]
@@ -47,8 +52,8 @@ def co2_timeline(co2, trials):
         ax.set_title(sess, color=INK)
         ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
         ax.tick_params(axis="x", rotation=0)
-    axes[0, 0].set_ylabel("CO₂ (ppm)")
-    axes[1, 0].set_ylabel("CO₂ (ppm)")
+    for row in axes:
+        row[0].set_ylabel("CO₂ (ppm)")
     h, l = axes[0, 1].get_legend_handles_labels()
     fig.suptitle("兩台感測器的 CO₂ 時間序列（灰底 = Stroop 施測時段；虛線 = 1000 / 2000 ppm）", y=1.06, color=INK)
     fig.legend(h, l, loc="upper center", bbox_to_anchor=(0.5, 1.025), ncol=3, frameon=False)
