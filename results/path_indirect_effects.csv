@@ -1,0 +1,10 @@
+﻿model,path,indirect_b,boot_ci_low,boot_ci_high,boot_p
+A,co2h → fatigue_now → rt_mean,-0.8812,-6.0829,1.1204,0.66
+A,co2h → fatigue_now → interference,-1.139,-2.9354,-0.0569,0.035
+A,temp → fatigue_now → rt_mean,-7.0681,-64.0958,11.8523,0.668
+A,rh → fatigue_now → rt_mean,0.5788,-1.1876,3.4513,0.657
+A,sleep_q → fatigue_now → rt_mean,1.6221,-6.8496,14.2839,0.937
+B,co2h → hr_pre → rt_mean,-14.0353,-99.552,14.1732,0.4275
+B,co2h → hr_pre → fatigue_now,-0.3321,-1.8985,0.2825,0.285
+B,co2h → fatigue_now → rt_mean,0.4254,-3.4939,3.7286,0.6212
+B,hr_pre → fatigue_now → rt_mean,0.5818,-2.5819,3.0474,0.7255

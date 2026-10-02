@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="783.865625pt" height="345.064pt" viewBox="0 0 783.865625 345.064" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-02T18:46:56.457709</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 345.064 
+L 783.865625 345.064 
+L 783.865625 0 
+L 0 0 
+z
+" style="fill: #fcfcfb"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 46.065625 273.77575 
+L 386.065625 273.77575 
+L 386.065625 66.912 
+L 46.065625 66.912 
+z
+" style="fill: #fcfcfb"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="m8bae0cf42d" d="M 0 0 
+L 0 3.5 
+" style="stroke: #52514e; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="90.7585" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="90.7585" y="288.7695" transform="rotate(-0 90.7585 288.7695)">0</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="174.296583" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="174.296583" y="288.7695" transform="rotate(-0 174.296583 288.7695)">5</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="257.834667" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="257.834667" y="288.7695" transform="rotate(-0 257.834667 288.7695)">10</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="341.37275" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="341.37275" y="288.7695" transform="rotate(-0 341.37275 288.7695)">20</text>
+     </g>
+    </g>
+    <g id="text_5">
+     <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #0b0b0b" x="216.065625" y="303.585125" transform="rotate(-0 216.065625 303.585125)">模擬的真實效應（每 100 ppm，ms）</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_5">
+      <path d="M 46.065625 273.77575 
+L 386.065625 273.77575 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <defs>
+       <path id="m37740de995" d="M 0 0 
+L -3.5 0 
+" style="stroke: #52514e; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="277.772625" transform="rotate(-0 39.065625 277.772625)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <path d="M 46.065625 232.403 
+L 386.065625 232.403 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="232.403" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="236.399875" transform="rotate(-0 39.065625 236.399875)">20</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_9">
+      <path d="M 46.065625 191.03025 
+L 386.065625 191.03025 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="191.03025" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="195.027125" transform="rotate(-0 39.065625 195.027125)">40</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_11">
+      <path d="M 46.065625 149.6575 
+L 386.065625 149.6575 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="149.6575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="153.654375" transform="rotate(-0 39.065625 153.654375)">60</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_13">
+      <path d="M 46.065625 108.28475 
+L 386.065625 108.28475 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="108.28475" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="112.281625" transform="rotate(-0 39.065625 112.281625)">80</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_15">
+      <path d="M 46.065625 66.912 
+L 386.065625 66.912 
+" clip-path="url(#p16a2499845)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#m37740de995" x="46.065625" y="66.912" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="39.065625" y="70.908875" transform="rotate(-0 39.065625 70.908875)">100</text>
+     </g>
+    </g>
+    <g id="text_12">
+     <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #0b0b0b" x="15.19375" y="170.343875" transform="rotate(-90 15.19375 170.343875)">模擬中的比例 (%)</text>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 61.52017 273.77575 
+L 89.923119 273.77575 
+L 89.923119 273.77575 
+L 61.52017 273.77575 
+z
+" clip-path="url(#p16a2499845)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 145.058254 273.77575 
+L 173.461202 273.77575 
+L 173.461202 264.466881 
+L 145.058254 264.466881 
+z
+" clip-path="url(#p16a2499845)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 228.596338 273.77575 
+L 256.999286 273.77575 
+L 256.999286 210.682306 
+L 228.596338 210.682306 
+z
+" clip-path="url(#p16a2499845)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 312.134421 273.77575 
+L 340.537369 273.77575 
+L 340.537369 109.319069 
+L 312.134421 109.319069 
+z
+" clip-path="url(#p16a2499845)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 91.593881 273.77575 
+L 119.996829 273.77575 
+L 119.996829 258.260969 
+L 91.593881 258.260969 
+z
+" clip-path="url(#p16a2499845)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 175.131964 273.77575 
+L 203.534912 273.77575 
+L 203.534912 66.912 
+L 175.131964 66.912 
+z
+" clip-path="url(#p16a2499845)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 258.670048 273.77575 
+L 287.072996 273.77575 
+L 287.072996 66.912 
+L 258.670048 66.912 
+z
+" clip-path="url(#p16a2499845)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 342.208131 273.77575 
+L 370.61108 273.77575 
+L 370.61108 66.912 
+L 342.208131 66.912 
+z
+" clip-path="url(#p16a2499845)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 46.065625 273.77575 
+L 46.065625 66.912 
+" style="fill: none; stroke: #52514e; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 46.065625 273.77575 
+L 386.065625 273.77575 
+" style="fill: none; stroke: #52514e; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 12px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle" x="216.065625" y="60.912" transform="rotate(-0 216.065625 60.912)">反應時間</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_13">
+    <path d="M 436.665625 273.77575 
+L 776.665625 273.77575 
+L 776.665625 66.912 
+L 436.665625 66.912 
+z
+" style="fill: #fcfcfb"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_5">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="481.3585" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="481.3585" y="288.7695" transform="rotate(-0 481.3585 288.7695)">0</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="564.896583" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="564.896583" y="288.7695" transform="rotate(-0 564.896583 288.7695)">0.1</text>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_19">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="648.434667" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="648.434667" y="288.7695" transform="rotate(-0 648.434667 288.7695)">0.2</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#m8bae0cf42d" x="731.97275" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #52514e" x="731.97275" y="288.7695" transform="rotate(-0 731.97275 288.7695)">0.4</text>
+     </g>
+    </g>
+    <g id="text_18">
+     <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #0b0b0b" x="606.665625" y="303.585125" transform="rotate(-0 606.665625 303.585125)">模擬的真實效應（每 100 ppm，分）</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_7">
+     <g id="line2d_21">
+      <path d="M 436.665625 273.77575 
+L 776.665625 273.77575 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="273.77575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_19">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="277.772625" transform="rotate(-0 429.665625 277.772625)">0</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_23">
+      <path d="M 436.665625 232.403 
+L 776.665625 232.403 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_24">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="232.403" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="236.399875" transform="rotate(-0 429.665625 236.399875)">20</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_25">
+      <path d="M 436.665625 191.03025 
+L 776.665625 191.03025 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_26">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="191.03025" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="195.027125" transform="rotate(-0 429.665625 195.027125)">40</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_27">
+      <path d="M 436.665625 149.6575 
+L 776.665625 149.6575 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_28">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="149.6575" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_22">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="153.654375" transform="rotate(-0 429.665625 153.654375)">60</text>
+     </g>
+    </g>
+    <g id="ytick_11">
+     <g id="line2d_29">
+      <path d="M 436.665625 108.28475 
+L 776.665625 108.28475 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_30">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="108.28475" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_23">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="112.281625" transform="rotate(-0 429.665625 112.281625)">80</text>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_31">
+      <path d="M 436.665625 66.912 
+L 776.665625 66.912 
+" clip-path="url(#pa2551789a6)" style="fill: none; stroke: #e4e3df; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_32">
+      <g>
+       <use xlink:href="#m37740de995" x="436.665625" y="66.912" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_24">
+      <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end; fill: #52514e" x="429.665625" y="70.908875" transform="rotate(-0 429.665625 70.908875)">100</text>
+     </g>
+    </g>
+    <g id="text_25">
+     <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #0b0b0b" x="405.79375" y="170.343875" transform="rotate(-90 405.79375 170.343875)">模擬中的比例 (%)</text>
+    </g>
+   </g>
+   <g id="patch_14">
+    <path d="M 452.12017 273.77575 
+L 480.523119 273.77575 
+L 480.523119 273.77575 
+L 452.12017 273.77575 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 535.658254 273.77575 
+L 564.061202 273.77575 
+L 564.061202 269.638475 
+L 535.658254 269.638475 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 619.196338 273.77575 
+L 647.599286 273.77575 
+L 647.599286 228.265725 
+L 619.196338 228.265725 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 702.734421 273.77575 
+L 731.137369 273.77575 
+L 731.137369 148.623181 
+L 702.734421 148.623181 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #eb6834"/>
+   </g>
+   <g id="patch_18">
+    <path d="M 482.193881 273.77575 
+L 510.596829 273.77575 
+L 510.596829 266.535519 
+L 482.193881 266.535519 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_19">
+    <path d="M 565.731964 273.77575 
+L 594.134912 273.77575 
+L 594.134912 70.014956 
+L 565.731964 70.014956 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_20">
+    <path d="M 649.270048 273.77575 
+L 677.672996 273.77575 
+L 677.672996 66.912 
+L 649.270048 66.912 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_21">
+    <path d="M 732.808131 273.77575 
+L 761.21108 273.77575 
+L 761.21108 66.912 
+L 732.808131 66.912 
+z
+" clip-path="url(#pa2551789a6)" style="fill: #1baf7a"/>
+   </g>
+   <g id="patch_22">
+    <path d="M 436.665625 273.77575 
+L 436.665625 66.912 
+" style="fill: none; stroke: #52514e; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_23">
+    <path d="M 436.665625 273.77575 
+L 776.665625 273.77575 
+" style="fill: none; stroke: #52514e; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_26">
+    <text style="font-size: 12px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle" x="606.665625" y="60.912" transform="rotate(-0 606.665625 60.912)">自覺疲勞</text>
+   </g>
+  </g>
+  <g id="text_27">
+   <text style="font-size: 12px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #0b0b0b" x="391.465625" y="16.7925" transform="rotate(-0 391.465625 16.7925)">假設「學生吸到的是最近那台」為真：座位表能幫上忙的機率</text>
+  </g>
+  <g id="legend_1">
+   <g id="patch_24">
+    <path d="M 206.398437 331.378062 
+L 226.398437 331.378062 
+L 226.398437 324.378062 
+L 206.398437 324.378062 
+z
+" style="fill: #eb6834"/>
+   </g>
+   <g id="text_28">
+    <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="234.398437" y="331.378062" transform="rotate(-0 234.398437 331.378062)">用座位表明顯較好（ΔAIC&gt;2）</text>
+   </g>
+   <g id="patch_25">
+    <path d="M 390.940625 331.378062 
+L 410.940625 331.378062 
+L 410.940625 324.378062 
+L 390.940625 324.378062 
+z
+" style="fill: #1baf7a"/>
+   </g>
+   <g id="text_29">
+    <text style="font-size: 10px; font-family: 'Microsoft JhengHei', 'Microsoft YaHei', 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="418.940625" y="331.378062" transform="rotate(-0 418.940625 331.378062)">不用座位表也測得到效應（p&lt;.05）</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p16a2499845">
+   <rect x="46.065625" y="66.912" width="340" height="206.86375"/>
+  </clipPath>
+  <clipPath id="pa2551789a6">
+   <rect x="436.665625" y="66.912" width="340" height="206.86375"/>
+  </clipPath>
+ </defs>
+</svg>

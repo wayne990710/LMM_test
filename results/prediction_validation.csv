@@ -1,0 +1,2 @@
+﻿sessions,n,rmse_with_co2,rmse_without_co2,improvement_pct,b_co2_per_100ppm,boot_ci_low,boot_ci_high,boot_reps
+9,69,1.3908,1.4514,4.1746,0.063,0.0112,0.1008,2000

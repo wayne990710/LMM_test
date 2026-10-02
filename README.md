@@ -2,7 +2,9 @@
 
 專題研究「高中教室二氧化碳濃度對學生認知表現影響之預測模型」的初步資料檢核。
 
-**最新數值（09-17 ～ 10-02）：[FACTS.md](FACTS.md)。**較早的解讀（09-17 ～ 09-23）：[REPORT.md](REPORT.md)。
+**完整結果報告：[REPORT.md](REPORT.md)**（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
+
+圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。
 
 ## 資料來源
 | 資料 | 位置 | 是否在本 repo |
@@ -27,7 +29,11 @@ python src/run_analysis.py
 - `src/models.py`：隨機截距 LMM、Nakagawa R²、LOSO 與 5 折交叉驗證
 - `src/run_analysis.py`：Wa1 / Wa2 / 兩台平均 各跑一次並比較
 - `src/seating_test.py`：座位表是否有用（窮舉所有座位安排 + 模擬）
-- `src/figures.py`：圖表（只畫場次層級平均）
+- `src/nonparametric.py`：無母數分析（個人內 Spearman＋Wilcoxon、高／低 CO₂ 配對、節次置換檢定、Friedman／Page）
+- `src/path_analysis.py`：徑路分析（piecewise SEM，LMM＋以學生為單位的 cluster bootstrap、Fisher's C）
+- `src/correlations.py`：整體與個人內 Spearman 相關矩陣
+- `src/prediction.py`：CO₂ 質量平衡擬合、通風情境模擬、疲勞預測（bootstrap 不確定性）、留一節次交叉驗證
+- `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 
 `data/private/patch_letters.csv`（貼片字母 → 編號，範本見 `patch_letters_TEMPLATE.csv`）存在時，
 會自動加跑逐人心率模型與「CO₂ → 施測前心率 → 反應時間」中介檢驗。

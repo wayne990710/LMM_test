@@ -22,12 +22,15 @@ plt.rcParams.update({
     "axes.labelcolor": INK, "xtick.color": MUTED, "ytick.color": MUTED, "axes.grid": True,
     "grid.color": GRID, "grid.linewidth": 0.8, "axes.spines.top": False, "axes.spines.right": False,
     "lines.linewidth": 2, "font.size": 10, "axes.axisbelow": True,
+    "svg.fonttype": "none",  # SVG 裡的字保留成文字，可在 Illustrator／Inkscape／Word 直接編輯
 })
 
 
 def _save(fig, name):
     FIG.mkdir(parents=True, exist_ok=True)
     fig.savefig(FIG / name, dpi=150, bbox_inches="tight")
+    (FIG / "svg").mkdir(exist_ok=True)
+    fig.savefig(FIG / "svg" / name.replace(".png", ".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -170,7 +173,117 @@ def seating_simulation(sim):
     _save(fig, "seating_simulation.png")
 
 
-def make_all(co2, pair, blk, hw, res, trials, seat_sim):
+def nonparametric(plot: dict, summary: pd.DataFrame):
+    """左：每位學生的個人內 Spearman ρ（一點一人，不標代碼）；右：高／低 CO2 配對。"""
+    rho_keys = [k for k in plot if k.endswith("（兩台平均）")]
+    pair_keys = ["自覺疲勞（兩台平均）", "Stroop 反應時間（兩台平均）"]
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.8), gridspec_kw={"width_ratios": [1.6, 1, 1]})
+    ax = axes[0]
+    for i, k in enumerate(rho_keys):
+        v = plot[k]["rho"]
+        jit = np.random.default_rng(i).uniform(-0.12, 0.12, len(v))
+        ax.scatter(np.full(len(v), i) + jit, v, s=40, color=COL["Avg"], alpha=0.8, edgecolors="#fcfcfb", zorder=3)
+        ax.hlines(np.median(v), i - 0.3, i + 0.3, color=INK, lw=2.5, zorder=4)
+        p = summary[(summary.outcome == k) & summary.method.str.startswith("個人內")].p.iloc[0]
+        ax.text(i, 1.08, f"p = {p:.2f}", ha="center", fontsize=8.5, color=MUTED)
+    ax.axhline(0, color=MUTED, lw=1)
+    ax.set_xticks(range(len(rho_keys)), [k.replace("（兩台平均）", "") for k in rho_keys], fontsize=8.5,
+                  rotation=20, ha="right")
+    ax.set(ylim=(-1.1, 1.2), ylabel="個人內 Spearman ρ（CO₂ vs 結果）",
+           title="每點 = 一位學生；橫線 = 中位數（Wilcoxon 檢定中位數 ≠ 0）")
+    ax.grid(axis="x", visible=False)
+    for ax, k in zip(axes[1:], pair_keys):
+        m = plot[k]["pairs"]  # 欄位：[低, 高]
+        for lo, hi in m:
+            ax.plot([0, 1], [lo, hi], color=COL["Avg"] if hi > lo else COL["Wa1"], alpha=0.7, marker="o", ms=5)
+        ax.plot([0, 1], np.median(m, axis=0), color=INK, lw=3, marker="o", ms=8, zorder=5)
+        row = summary[(summary.outcome == k) & summary.method.str.startswith("高／低")].iloc[0]
+        ax.set_xticks([0, 1], ["CO₂ < 1000", "CO₂ ≥ 1000"])
+        ax.set_xlim(-0.3, 1.3)
+        name = k.replace("（兩台平均）", "")
+        ax.set_title(f"{name}：每線一人\nHL 中位差 {row.hl_diff_high_minus_low:+.2f}，p = {row.p:.3f}",
+                     fontsize=10)
+        ax.grid(axis="x", visible=False)
+    axes[1].set_ylabel("學生平均（1–7 分）")
+    axes[2].set_ylabel("學生平均反應時間 (ms)")
+    fig.tight_layout()
+    _save(fig, "nonparametric.png")
+
+
+PATH_POS = {
+    "A": {"co2h": (0, 4), "temp": (0, 2.9), "rh": (0, 1.8), "sleep_h": (0, 0.7), "sleep_q": (0, -0.4),
+          "fatigue_now": (1.45, 1.1), "test_no": (2.9, 2.0), "rt_mean": (2.9, 3.4), "interference": (2.9, 0.6)},
+    "B": {"co2h": (0, 4), "temp": (0, 2.9), "rh": (0, 1.8), "sleep_h": (0, 0.7), "sleep_q": (0, -0.4),
+          "hr_pre": (1.45, 3.5), "fatigue_now": (1.45, 1.0), "test_no": (2.9, 3.6), "rt_mean": (2.9, 2.0)},
+}
+# 研究假設的路徑：一律畫出；其他控制路徑只有在 bootstrap 顯著時才畫（完整數值見 path_coefficients.csv）
+HYPOTHESIZED = {"A": {("co2h", "fatigue_now"), ("fatigue_now", "rt_mean"), ("fatigue_now", "interference"),
+                      ("co2h", "rt_mean"), ("co2h", "interference")},
+                "B": {("co2h", "hr_pre"), ("hr_pre", "fatigue_now"), ("co2h", "fatigue_now"),
+                      ("fatigue_now", "rt_mean"), ("hr_pre", "rt_mean"), ("co2h", "rt_mean")}}
+
+
+def path_diagram(paths: pd.DataFrame, fit: pd.DataFrame, labels: dict, exo_corr: dict | None = None):
+    """徑路圖：數字為標準化係數 β；粗黑實線 = 以學生為單位 bootstrap 95% CI 不含 0，灰虛線 = 含 0。"""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+    for ax, (name, pos) in zip(axes, PATH_POS.items()):
+        f = fit[fit.model == name].iloc[0]
+        ax.set_xlim(-1.25, 3.4)
+        ax.set_ylim(-0.9, 5.1)
+        ax.axis("off")
+        pm = paths[paths.model == name]
+        for k, (x, y) in pos.items():
+            key = k in ("fatigue_now", "hr_pre")
+            ax.add_patch(FancyBboxPatch((x - 0.38, y - 0.22), 0.76, 0.44,
+                                        boxstyle="round,pad=0.02,rounding_size=0.06", fc="#fcfcfb",
+                                        ec=INK if key else MUTED, lw=2 if key else 1.3, zorder=3))
+            ax.text(x, y, labels[k], ha="center", va="center", fontsize=10.5, color=INK, zorder=4,
+                    fontweight="bold" if key else "normal")
+        hidden = 0
+        for _, r in pm.iterrows():
+            sig = r.boot_ci_low > 0 or r.boot_ci_high < 0
+            if (r["from"], r["to"]) not in HYPOTHESIZED[name] and not sig:
+                hidden += 1
+                continue
+            (x0, y0), (x1, y1) = pos[r["from"]], pos[r["to"]]
+            rad = 0.0
+            ax.add_patch(FancyArrowPatch((x0, y0), (x1, y1), arrowstyle="-|>", mutation_scale=16,
+                                         connectionstyle=f"arc3,rad={rad}", shrinkA=40, shrinkB=40,
+                                         color=INK if sig else "#a9a7a0", lw=2.4 if sig else 1.2,
+                                         ls="-" if sig else (0, (5, 3)), zorder=2))
+            lx, ly = (x0 + x1) / 2, (y0 + y1) / 2
+            if abs(x1 - x0) < 0.01:  # 垂直的線，標籤放旁邊
+                lx += 0.33
+            ax.text(lx, ly, f"β = {r.beta_std:+.2f}", fontsize=9.5, ha="center", va="center",
+                    color=INK if sig else MUTED, fontweight="bold" if sig else "normal",
+                    bbox=dict(fc="#fcfcfb", ec="none", pad=1.2), zorder=5)
+        if exo_corr and name in exo_corr:  # 外生變項之間的相關（雙箭頭）
+            for (u, v), rv in exo_corr[name].items():
+                (x0, y0), (x1, y1) = pos[u], pos[v]
+                ax.add_patch(FancyArrowPatch((x0 - 0.38, y0), (x1 - 0.38, y1), arrowstyle="<|-|>",
+                                             mutation_scale=11, connectionstyle="arc3,rad=0.55",
+                                             color=COL["Wa1"], lw=1.2, zorder=1))
+                ax.text(x0 - 0.38 - 0.55 * abs(y1 - y0) / 2 - 0.04, (y0 + y1) / 2, f"r = {rv:+.2f}",
+                        fontsize=9, color=COL["Wa1"], ha="right", va="center",
+                        bbox=dict(fc="#fcfcfb", ec="none", pad=0.5))
+        warn = "" if name == "A" else "\n⚠ 樣本太小，標準化 β > 1 代表共線性，係數不可解讀"
+        title = ("模型 A：CO₂ → 自覺疲勞 → Stroop（控制溫濕度、睡眠、第幾次施測）" if name == "A"
+                 else "模型 B：CO₂ → 施測前心率 → 疲勞 → 反應時間（子樣本）")
+        ax.set_title(f"{title}\nn = {int(f.n)} 人次、{int(f.students)} 人；Fisher's C = {f.fisher_C:.1f}"
+                     f"（df = {int(f.df)}，p = {f.p:.2f}）{warn}", fontsize=11, color=INK)
+        ax.text(1.45, -0.85, f"另有 {hidden} 條控制路徑不顯著、未畫出（見 path_coefficients.csv）",
+                ha="center", fontsize=9, color=MUTED)
+    fig.text(0.5, 0.005, "β = 標準化係數。粗黑實線：以學生為單位 bootstrap 95% CI 不含 0；灰虛線：含 0。"
+             "藍色雙箭頭：外生變項間的相關。Fisher's C 的 p > .05 表示未畫的路徑與資料不衝突。",
+             ha="center", fontsize=9.5, color=MUTED)
+    fig.tight_layout(rect=(0, 0.03, 1, 1))
+    _save(fig, "path_diagram.png")
+
+
+def make_all(co2, pair, blk, hw, res, trials, seat_sim, np_plot=None, np_sum=None):
+    if np_plot is not None:
+        nonparametric(np_plot, np_sum)
     fatigue_vs_co2(blk)
     seating_simulation(seat_sim)
     co2_timeline(co2, trials)
@@ -178,3 +291,64 @@ def make_all(co2, pair, blk, hw, res, trials, seat_sim):
     stroop_vs_co2(blk)
     model_comparison(res)
     hr_vs_co2(hw)
+
+
+def correlation_heatmap(mats: dict, labels: list[str], n: int, students: int):
+    """發散色階：藍 = 負相關、紅 = 正相關、中點淺灰；格內數字為 ρ，* 為 p < .05。"""
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap = LinearSegmentedColormap.from_list("div", ["#2a78d6", "#eeede9", "#e34948"])
+    k = len(labels)
+    fig, axes = plt.subplots(1, len(mats), figsize=(8.2 * len(mats), 7.4))
+    for ax, (title, (r, p)) in zip(np.atleast_1d(axes), mats.items()):
+        rv, pv = r.values.astype(float), p.values.astype(float)
+        mask = np.triu(np.ones_like(rv, bool), 1)  # 只畫下三角，避免重複
+        shown = np.where(mask, np.nan, rv)
+        im = ax.imshow(shown, cmap=cmap, vmin=-1, vmax=1)
+        for i in range(k):
+            for j in range(i + 1):
+                if i == j:
+                    continue
+                star = "*" if pv[i, j] < 0.05 else ""
+                ax.text(j, i, f"{rv[i, j]:.2f}{star}", ha="center", va="center", fontsize=8.5,
+                        color="#fcfcfb" if abs(rv[i, j]) > 0.55 else INK)
+        ax.set_xticks(range(k), labels, rotation=40, ha="right", fontsize=9)
+        ax.set_yticks(range(k), labels, fontsize=9)
+        ax.grid(False)
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+        ax.set_title(title, fontsize=11, color=INK)
+    fig.colorbar(im, ax=axes, shrink=0.7, label="Spearman ρ")
+    fig.suptitle(f"變項間相關（n = {n} 人次、{students} 人；* p < .05，未校正多重比較）", color=INK, y=0.98)
+    _save(fig, "correlation_heatmap.png")
+
+
+def prediction_simulation(traj: dict, sc: pd.DataFrame, fits: pd.DataFrame):
+    """左：實測擬合出的換氣率分布；中：三種通風情境的 50 分鐘 CO2 軌跡；右：下課時預測的疲勞變化（95% bootstrap 區間）。"""
+    cols = [COL["Wa1"], COL["Avg"], COL["Wa2"]]
+    fig, axes = plt.subplots(1, 3, figsize=(17, 4.8), gridspec_kw={"width_ratios": [0.8, 1.3, 1]})
+    ax = axes[0]
+    jit = np.random.default_rng(0).uniform(-0.1, 0.1, len(fits))
+    ax.scatter(jit, fits.ach_per_h, s=50, color=COL["Avg"], edgecolors="#fcfcfb", zorder=3)
+    ax.hlines(fits.ach_per_h.median(), -0.3, 0.3, color=INK, lw=2.5)
+    ax.set(xlim=(-0.6, 0.6), xticks=[], ylabel="換氣率 λ（次／小時）",
+           title=f"實測擬合（{len(fits)} 節×感測器）\n中位數 {fits.ach_per_h.median():.2f} 次／小時")
+    ax = axes[1]
+    for (name, (t, c)), col in zip(traj.items(), cols):
+        ax.plot(t, c, color=col, lw=2.4, label=f"{name}（λ = {sc.set_index('scenario').loc[name, 'ach_per_h']:.1f}）")
+    ax.axhline(1000, color=MUTED, ls="--", lw=1)
+    ax.text(1, 1015, "1000 ppm（室內空氣品質標準）", fontsize=8.5, color=MUTED, va="bottom")
+    ax.set(xlabel="上課經過時間（分鐘）", ylabel="CO₂ (ppm)", title="一堂 50 分鐘課的 CO₂ 模擬（關窗開冷氣）")
+    ax.legend(frameon=False, fontsize=9, loc="upper left")
+    ax = axes[2]
+    y = np.arange(len(sc))
+    for i, (_, r) in enumerate(sc.iterrows()):
+        ax.plot([r.d_fatigue_ci_low, r.d_fatigue_ci_high], [i, i], color=cols[i], lw=3, solid_capstyle="round")
+        ax.scatter(r.d_fatigue_end, i, s=80, color=cols[i], edgecolors="#fcfcfb", zorder=3)
+        ax.text(r.d_fatigue_ci_high + 0.03, i, f"{r.d_fatigue_end:+.2f}", va="center", fontsize=9.5, color=INK)
+    ax.axvline(0, color=MUTED, lw=1)
+    ax.set_yticks(y, sc.scenario)
+    ax.invert_yaxis()
+    ax.set(xlabel="下課時自覺疲勞變化（1–7 分）", title="預測疲勞增加量（95% bootstrap 區間）")
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    _save(fig, "prediction_simulation.png")

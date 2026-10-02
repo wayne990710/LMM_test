@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -12,6 +14,7 @@ from scipy import stats
 import data as D
 import figures as F
 import models as M
+import nonparametric as NP
 import seating_test as ST
 
 RES = D.ROOT / "results"
@@ -48,6 +51,33 @@ def compare(df, y, group, covars, outcome, unit, cv=True, repeats=10, extra=""):
     out = pd.DataFrame(rows)
     out["delta_aic_vs_best"] = out.aic - out.aic.min()
     return out
+
+
+def env_adjust(specs) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """溫濕度檢查：CO2 係數在「不調整／+溫度／+溫濕度」下怎麼變，以及只用溫濕度（不放 CO2）的模型配適。"""
+    rows, cors = [], []
+    for lab, d, y, cov, g in specs:
+        for s in EXPOSURES:
+            cors.append({"outcome": lab, "exposure": s, "n": len(d),
+                         "temp_mean": d[f"temp_{s}"].mean(), "temp_min": d[f"temp_{s}"].min(),
+                         "temp_max": d[f"temp_{s}"].max(), "rh_mean": d[f"rh_{s}"].mean(),
+                         "rh_min": d[f"rh_{s}"].min(), "rh_max": d[f"rh_{s}"].max(),
+                         "r_co2_temp": d[f"co2_{s}"].corr(d[f"temp_{s}"]),
+                         "r_co2_rh": d[f"co2_{s}"].corr(d[f"rh_{s}"]),
+                         "r_temp_rh": d[f"temp_{s}"].corr(d[f"rh_{s}"])})
+            aics = {}
+            for adj, extra in [("none", ""), ("+temp", f" + temp_{s}"), ("+temp+rh", f" + temp_{s} + rh_{s}")]:
+                r = M.fit_lmm(f"{y} ~ co2h_{s} + {cov}{extra}", d, g)
+                row = {"outcome": lab, "exposure": s, "adjust": adj, "n": len(d), **M.coef_row(r, f"co2h_{s}")}
+                for t in ("temp", "rh"):
+                    if f"{t}_{s}" in r.fe_params:
+                        row[f"{t}_beta"], row[f"{t}_p"] = r.fe_params[f"{t}_{s}"], r.pvalues[f"{t}_{s}"]
+                aics[adj] = M.aic(r)
+                rows.append(row)
+            r_env = M.fit_lmm(f"{y} ~ temp_{s} + rh_{s} + {cov}", d, g)
+            rows.append({"outcome": lab, "exposure": s, "adjust": "temp+rh only (no CO2)", "n": len(d),
+                         "aic_minus_co2_only": M.aic(r_env) - aics["none"]})
+    return pd.DataFrame(rows), pd.DataFrame(cors)
 
 
 def main():
@@ -154,12 +184,16 @@ def main():
                                   "groups": fwa1.student.nunique(), **M.coef_row(r, "co2h_Wa1")}]))
 
     # ---------- 3c. 座位表有沒有用
-    seat_ex = pd.DataFrame([ST.exhaustive(both, "rt_mean", "test_no"),
-                            ST.exhaustive(fboth, "fatigue_now", fcov)])
-    seat_ex.round(4).to_csv(RES / "seating_exhaustive.csv", index=False, encoding="utf-8-sig")
-    seat_sim = pd.concat([ST.simulate(both, "rt_mean", "test_no"),
-                          ST.simulate(fboth, "fatigue_now", fcov, betas=(0, 0.1, 0.2, 0.4))])
-    seat_sim.round(3).to_csv(RES / "seating_simulation.csv", index=False, encoding="utf-8-sig")
+    # 窮舉很慢（約 10 分鐘）；SKIP_SEATING=1 時沿用上次的結果（只在 Stroop／疲勞資料沒變時使用）
+    if os.environ.get("SKIP_SEATING") == "1" and (RES / "seating_simulation.csv").exists():
+        seat_sim = pd.read_csv(RES / "seating_simulation.csv")
+    else:
+        seat_ex = pd.DataFrame([ST.exhaustive(both, "rt_mean", "test_no"),
+                                ST.exhaustive(fboth, "fatigue_now", fcov)])
+        seat_ex.round(4).to_csv(RES / "seating_exhaustive.csv", index=False, encoding="utf-8-sig")
+        seat_sim = pd.concat([ST.simulate(both, "rt_mean", "test_no"),
+                              ST.simulate(fboth, "fatigue_now", fcov, betas=(0, 0.1, 0.2, 0.4))])
+        seat_sim.round(3).to_csv(RES / "seating_simulation.csv", index=False, encoding="utf-8-sig")
 
     # ---------- 4. 心率（5 分鐘）與 HRV
     hr = D.load_hr_seconds()
@@ -208,6 +242,35 @@ def main():
         res.append(pd.DataFrame([{"outcome": "施測前心率 ~ CO2", "unit": "人次", "exposure": "Avg", "n": len(med),
                                   "groups": med.student.nunique(), **M.coef_row(r, "co2h_Avg")}]))
 
+    # ---------- 4c. 溫濕度：計畫書的共變量，且與冷氣（≈ CO2）一起變動
+    env_rows, env_cor = env_adjust([
+        ("Stroop 平均反應時間", both, "rt_mean", "test_no", "student"),
+        ("Stroop 干擾分數", both, "interference", "test_no", "student"),
+        ("自覺疲勞", fboth, "fatigue_now", fcov, "student"),
+        ("心率（裝置×節次）", hwb, "hr", "elapsed_min + C(device_type)", "wearer"),
+        ("HRV log(RMSSD)（裝置×節次）", rwb, "log_rmssd", "elapsed_min", "wearer")])
+    env_rows.round(4).to_csv(RES / "temp_humidity_adjustment.csv", index=False, encoding="utf-8-sig")
+    env_cor.round(3).to_csv(RES / "temp_humidity_summary.csv", index=False, encoding="utf-8-sig")
+
+    # ---------- 4d. 無母數分析（12 人、重複測量：以學生為單位）
+    # 逐人心率用「每節課平均」，避免節次內 CO2 與上課經過時間一起上升的問題
+    pws = pw.groupby(["student", "session"]).agg(hr=("hr", "mean"), co2_Avg=("co2_Avg", "mean")).reset_index()
+    late = both[both.test_no >= 4]  # 反應時間在第 4 次以後趨於穩定（練習效應）
+    np_specs = [("自覺疲勞（兩台平均）", fboth, "fatigue_now", "co2_Avg", "student", "block"),
+                ("自覺疲勞（Wa1）", fboth, "fatigue_now", "co2_Wa1", "student", "block"),
+                ("自覺疲勞（Wa2）", fboth, "fatigue_now", "co2_Wa2", "student", "block"),
+                ("自覺疲勞 vs 溫度", fboth, "fatigue_now", "temp_Avg", "student", "block"),
+                ("自覺疲勞 vs 濕度", fboth, "fatigue_now", "rh_Avg", "student", "block"),
+                ("Stroop 反應時間（兩台平均）", both, "rt_mean", "co2_Avg", "student", "block"),
+                ("Stroop 反應時間（Wa1）", both, "rt_mean", "co2_Wa1", "student", "block"),
+                ("Stroop 反應時間（Wa2）", both, "rt_mean", "co2_Wa2", "student", "block"),
+                ("Stroop 反應時間，第 4 次以後（兩台平均）", late, "rt_mean", "co2_Avg", "student", "block"),
+                ("Stroop 干擾分數（兩台平均）", both, "interference", "co2_Avg", "student", "block"),
+                ("Stroop 正確率（兩台平均）", both, "accuracy", "co2_Avg", "student", "block"),
+                ("心率，每節平均（兩台平均）", pws, "hr", "co2_Avg", "student", "session")]
+    np_sum, np_plot = NP.run_all(np_specs)
+    np_sum.round(4).to_csv(RES / "nonparametric.csv", index=False, encoding="utf-8-sig")
+
     allres = pd.concat(res, ignore_index=True)
     allres.round(4).to_csv(RES / "model_comparison.csv", index=False, encoding="utf-8-sig")
 
@@ -230,8 +293,16 @@ def main():
     conf["slot_vs_co2_Wa1"] = np.corrcoef(both.co2_Wa1, (both.slot == "PM").astype(int))[0, 1]
     pd.Series(conf, name="r").round(3).to_csv(RES / "confounding_check.csv", encoding="utf-8-sig")
 
-    F.make_all(co2, pair, blk, hw, allres, trials, seat_sim)
+    F.make_all(co2, pair, blk, hw, allres, trials, seat_sim, np_plot, np_sum)
     print(allres.round(3).to_string())
+
+    # ---------- 6. 讀上面寫出的資料表做：相關矩陣、徑路分析、模擬預測
+    import correlations
+    import path_analysis
+    import prediction
+    path_analysis.main()
+    correlations.main()
+    prediction.main()
 
 
 if __name__ == "__main__":
