@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -181,19 +182,64 @@ def load_patch_letters() -> pd.DataFrame | None:
 
 
 # ---------------------------------------------------------------- 心率
+# 09-29 以前的貼片收錄是用舊版 ecg_process.py 算的（沒有品質檢查），已用新版重算到這裡
+ECG_REPROCESSED = PRIVATE_DIR / "ecg_reprocessed"
+_STAMP = re.compile(r"_(\d{8}_\d{6})")
+
+
+def _ecg_files(prefix: str) -> list[Path]:
+    """同一個 session 若有重算版，就用重算版。"""
+    redo = {_STAMP.search(f.name).group(1): f for f in ECG_REPROCESSED.glob(f"{prefix}_*.csv")}
+    out = list(ECG_REPROCESSED.glob(f"{prefix}_*.csv"))
+    for f in ECG_DIR.glob(f"{prefix}_*.csv"):
+        stamp = _STAMP.search(f.name).group(1)
+        if not any(_STAMP.search(r.name).group(1) == stamp for r in redo.values()):
+            out.append(f)
+    return out
+
+
+def ecg_quality() -> pd.DataFrame:
+    """每顆貼片每節課的品質（新版 ecg_process.py：good / poor / no_signal / error）。"""
+    rows = []
+    for f in _ecg_files("ecg_summary"):
+        d = pd.read_csv(f)
+        stamp = _STAMP.search(f.name).group(1)
+        d["session"] = _session_id(pd.Series(pd.to_datetime(stamp, format="%Y%m%d_%H%M%S"))).iloc[0]
+        d["stamp"] = stamp
+        rows.append(d)
+    q = pd.concat(rows, ignore_index=True)
+    # 同一節課若有兩次收錄（例如 09-30 下午先開了一次空的），有一次 good 就算 good
+    q["is_good"] = q.quality == "good"
+    return q
+
+
+def good_ecg_wearers() -> set[str]:
+    q = ecg_quality()
+    g = q.groupby(["label", "session"]).is_good.any()
+    return {f"{dev} {ses}" for (dev, ses), ok in g.items() if ok}
+
+
 def load_hr_seconds() -> pd.DataFrame:
-    """所有手環與貼片的每秒心率，長格式：time, device, hr。同一秒同一顆出現在多個檔就取平均。"""
-    files = [f for f in glob.glob(str(ECG_DIR / "merged*.csv"))]
+    """每秒心率，長格式：time, device, hr。
+
+    手環取自 merged*.csv；貼片取自 ecghr_*.csv（重算版優先），只保留品質 good 的貼片節次。
+    """
     parts = []
-    for f in files:
+    for f in glob.glob(str(ECG_DIR / "merged*.csv")):
         d = pd.read_csv(f, parse_dates=["time"])
         long = d.melt(id_vars="time", var_name="device", value_name="hr").dropna()
         long["device"] = long.device.str.replace("hr_", "", regex=False)
-        parts.append(long)
+        parts.append(long[~long.device.str.startswith("E")])
+    for f in _ecg_files("ecghr"):
+        d = pd.read_csv(f, parse_dates=["time"]).rename(columns={"hr_ecg": "hr"})
+        d["device"] = f.name.split("_")[1]
+        parts.append(d[["time", "device", "hr"]])
     hr = pd.concat(parts).groupby(["time", "device"], as_index=False).hr.mean()
     hr = hr[hr.hr.between(40, 200)]
     hr["device_type"] = np.where(hr.device.str.startswith("E"), "ecg", "polar")
-    return hr
+    good = good_ecg_wearers()
+    wearer = hr.device + " " + _session_id(hr.time)
+    return hr[(hr.device_type == "polar") | wearer.isin(good)].reset_index(drop=True)
 
 
 def _session_id(t: pd.Series) -> pd.Series:
@@ -216,8 +262,8 @@ def hr_windows(hr: pd.DataFrame, minutes: int = 5, min_cover: float = 0.6) -> pd
 def rmssd_windows(minutes: int = 5, min_good: float = 0.8, min_beats: int = 150) -> pd.DataFrame:
     """心電貼片每 5 分鐘的 RMSSD。只用相鄰兩拍都沒被標記為異常的差值。"""
     rows = []
-    for f in glob.glob(str(ECG_DIR / "ecgrr_*.csv")):
-        dev = Path(f).stem.split("_")[1]
+    for f in _ecg_files("ecgrr"):
+        dev = f.name.split("_")[1]
         d = pd.read_csv(f, parse_dates=["time"])
         if d.empty:
             continue
@@ -236,6 +282,7 @@ def rmssd_windows(minutes: int = 5, min_good: float = 0.8, min_beats: int = 150)
     w = pd.DataFrame(rows).groupby(["device", "win"], as_index=False).mean()
     w["session"] = _session_id(w.win)
     w["wearer"] = w.device + " " + w.session
+    w = w[w.wearer.isin(good_ecg_wearers())]
     w["elapsed_min"] = w.groupby("wearer").win.transform(lambda s: (s - s.min()).dt.total_seconds() / 60)
     return w
 
