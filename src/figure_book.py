@@ -1,0 +1,380 @@
+"""補齊值得做的圖表，並把全部圖表依研究流程整理成一份 PDF 圖表集（給指導教授）。
+
+執行：python src/figure_book.py（需先跑過 run_analysis.py）
+輸出：results/figures/*.png、results/figures/svg/*.svg、results/圖表集.pdf
+"""
+from __future__ import annotations
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats
+from statsmodels.stats.power import TTestPower
+
+import data as D
+import figures as F
+import prediction as P
+from figures import COL, INK, MUTED, _save
+
+R = D.ROOT / "results"
+FIG = R / "figures"
+STATUS = ["#2f8a4c", "#d4a12a", "#e07b2e", "#c2413a"]   # <1000、1000–1500、1500–2000、>2000 ppm
+
+
+# ---------------------------------------------------------------- 新圖
+def data_coverage():
+    """每個場次有哪些資料：格內數字為人數或裝置數，顏色深淺代表相對完整度。"""
+    trials = D.load_stroop_trials()
+    fat = pd.read_csv(D.PRIVATE_DIR / "fatigue_with_co2.csv")
+    ss = pd.read_csv(R / "session_summary.csv").set_index("block")
+    hw = pd.read_csv(D.PRIVATE_DIR / "hr_5min_windows.csv")
+    q = D.ecg_quality()
+    q = q[q.quality != "error"]
+    blocks = sorted(set(trials.block))
+    rows = {
+        "Stroop（人）": trials.groupby("block").Student_ID.nunique(),
+        "疲勞量表（份，已排除未通過檢核）": fat[fat.attention_ok].groupby("block").size(),
+        "CO₂ Wa1（施測時有資料）": ss.co2_Wa1.notna().astype(int),
+        "CO₂ Wa2（施測時有資料）": ss.co2_Wa2.notna().astype(int),
+        "手環（顆）": hw[hw.device_type == "polar"].groupby("session").device.nunique(),
+        "心電貼片（收錄顆數）": q.groupby("session").label.nunique(),
+        "心電貼片（品質 good）": q[q.quality == "good"].groupby("session").label.nunique(),
+    }
+    mat = pd.DataFrame({k: v.reindex(blocks) for k, v in rows.items()}).T.fillna(0)
+    norm = mat.div(mat.max(axis=1).replace(0, 1), axis=0)
+    fig, ax = plt.subplots(figsize=(15, 4.6))
+    ax.imshow(norm.values, cmap=plt.cm.colors.LinearSegmentedColormap.from_list("c", ["#f1efe9", COL["Avg"]]),
+              aspect="auto", vmin=0, vmax=1)
+    for i in range(mat.shape[0]):
+        for j in range(mat.shape[1]):
+            v = mat.values[i, j]
+            txt = ("✓" if v else "—") if "CO₂" in mat.index[i] else (f"{int(v)}" if v else "—")
+            ax.text(j, i, txt, ha="center", va="center", fontsize=10,
+                    color="#fcfcfb" if norm.values[i, j] > 0.6 else INK)
+    ax.set_xticks(range(len(blocks)), blocks, rotation=35, ha="right")
+    ax.set_yticks(range(len(mat.index)), mat.index)
+    ax.grid(False)
+    for s in ax.spines.values():
+        s.set_visible(False)
+    ax.set_title("各場次資料完整度（數字＝人數或裝置數；— ＝沒有資料）", color=INK)
+    fig.tight_layout()
+    _save(fig, "data_coverage.png")
+
+
+def co2_exposure():
+    """每節課的 CO₂ 分級時間比例（兩台感測器的平均）。"""
+    e = pd.read_csv(R / "co2_exposure_by_session.csv")
+    e = e.groupby("session")[["pct_over_1000", "pct_over_1500", "pct_over_2000"]].mean()
+    _, bi = D.load_code_table()
+    ac = dict(zip(bi.block, bi.ac))
+    seg = pd.DataFrame({"< 1000": 100 - e.pct_over_1000, "1000–1500": e.pct_over_1000 - e.pct_over_1500,
+                        "1500–2000": e.pct_over_1500 - e.pct_over_2000, "> 2000": e.pct_over_2000})
+    fig, ax = plt.subplots(figsize=(12, 6))
+    y = np.arange(len(seg))
+    left = np.zeros(len(seg))
+    for col, c in zip(seg.columns, STATUS):
+        ax.barh(y, seg[col], left=left, color=c, height=0.62, label=f"{col} ppm", edgecolor="#fcfcfb", lw=1.5)
+        left += seg[col].values
+    ax.set_yticks(y, [f"{s}　{ac.get(s, '') or ''}" for s in seg.index])
+    ax.invert_yaxis()
+    ax.set(xlim=(0, 100), xlabel="該節課收錄時間的比例 (%)",
+           title="各節課 CO₂ 濃度分級（兩台平均；日期後為研究代碼對照表的冷氣註記）")
+    ax.legend(ncol=4, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.1))
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    _save(fig, "co2_exposure.png")
+
+
+def ecg_quality_map():
+    q = D.ecg_quality()
+    q = q[q.quality != "error"].drop_duplicates(["label", "session"])
+    t = q.pivot(index="label", columns="session", values="quality")
+    bad = q.pivot(index="label", columns="session", values="bad_rr_pct")
+    code = t.replace({"good": 1, "poor": 0}).astype(float)
+    fig, ax = plt.subplots(figsize=(13, 4.6))
+    ax.imshow(code.values, cmap=plt.cm.colors.ListedColormap(["#e9b2ad", "#a8d8bf"]), aspect="auto", vmin=0, vmax=1)
+    for i in range(code.shape[0]):
+        for j in range(code.shape[1]):
+            if not np.isnan(code.values[i, j]):
+                ax.text(j, i, f"{bad.values[i, j]:.0f}%", ha="center", va="center", fontsize=9, color=INK)
+    ax.set_xticks(range(code.shape[1]), code.columns, rotation=35, ha="right")
+    ax.set_yticks(range(code.shape[0]), code.index)
+    ax.grid(False)
+    for s in ax.spines.values():
+        s.set_visible(False)
+    g, n = int((q.quality == "good").sum()), len(q)
+    ax.set_title(f"心電貼片品質（綠＝good、紅＝poor；格內為異常 RR 比例，> 20% 判為 poor）　{g}/{n} 可用", color=INK)
+    fig.tight_layout()
+    _save(fig, "ecg_quality.png")
+
+
+def stroop_conditions():
+    """測驗效度檢核：不一致題應比中性題慢（Stroop 效應）。"""
+    t = D.load_stroop_trials()
+    t = t[(t.correct == 1) & t.rt.between(200, 3000)]
+    m = t.groupby(["Student_ID", "condition"]).rt.mean().unstack()[["neutral", "congruent", "incongruent"]]
+    lab = {"neutral": "中性", "congruent": "一致", "incongruent": "不一致"}
+    fr = stats.friedmanchisquare(*[m[c] for c in m.columns]).pvalue
+    wi = stats.wilcoxon(m.incongruent, m.neutral).pvalue
+    by = t.groupby(["block", "Student_ID", "condition"]).rt.mean().groupby(["block", "condition"]).median().unstack()
+    fig, (a, b) = plt.subplots(1, 2, figsize=(14, 5), gridspec_kw={"width_ratios": [1, 1.5]})
+    for _, r in m.iterrows():
+        a.plot(range(3), r.values, color=MUTED, alpha=0.35, lw=1)
+    a.plot(range(3), m.median().values, color=INK, lw=3, marker="o", ms=8)
+    a.set_xticks(range(3), [lab[c] for c in m.columns])
+    a.set(ylabel="平均反應時間 (ms)", title=f"每線一位學生（全部場次平均）\nFriedman p = {fr:.3f}；不一致 vs 中性 Wilcoxon p = {wi:.3f}")
+    for c, col in zip(["neutral", "congruent", "incongruent"], [COL["Avg"], COL["Wa1"], COL["Wa2"]]):
+        b.plot(by.index, by[c], marker="o", color=col, label=lab[c])
+    b.legend(frameon=False)
+    b.set(ylabel="各場次學生中位數 (ms)", title="各場次三種情境的反應時間")
+    b.tick_params(axis="x", rotation=35)
+    fig.suptitle("Stroop 測驗效度檢核：三種情境的反應時間", color=INK, y=1.02)
+    fig.tight_layout()
+    _save(fig, "stroop_conditions.png")
+
+
+def practice_curve():
+    ps = pd.read_csv(D.PRIVATE_DIR / "stroop_person_sessions.csv")
+    g = ps.groupby("test_no")
+    s = pd.DataFrame({"n": g.size(), "rt_med": g.rt_mean.median(), "rt_q1": g.rt_mean.quantile(0.25),
+                      "rt_q3": g.rt_mean.quantile(0.75), "acc_med": g.accuracy.median(),
+                      "acc_q1": g.accuracy.quantile(0.25), "acc_q3": g.accuracy.quantile(0.75)})
+    s = s[s.n >= 5]
+    rho_rt = stats.spearmanr(ps.test_no, ps.rt_mean).statistic
+    fig, (a, b) = plt.subplots(1, 2, figsize=(14, 4.8))
+    for ax, k, lab, col in [(a, "rt", "反應時間 (ms)", COL["Wa1"]), (b, "acc", "正確率", COL["Wa2"])]:
+        ax.fill_between(s.index, s[f"{k}_q1"], s[f"{k}_q3"], color=col, alpha=0.18, lw=0, label="四分位距")
+        ax.plot(s.index, s[f"{k}_med"], color=col, marker="o", lw=2.4, label="中位數")
+        for x, n in s.n.items():
+            ax.text(x, ax.get_ylim()[0], f"n={n}", ha="center", va="bottom", fontsize=8, color=MUTED)
+        ax.set(xlabel="第幾次做 Stroop", ylabel=lab)
+        ax.legend(frameon=False)
+    a.set_title(f"反應時間隨施測次數下降（Spearman ρ = {rho_rt:.2f}）")
+    b.set_title("正確率接近滿分（天花板效應）")
+    fig.suptitle("練習效應：只列出有 ≥ 5 人的次數", color=INK, y=1.02)
+    fig.tight_layout()
+    _save(fig, "practice_curve.png")
+
+
+def env_collinearity():
+    ss = pd.read_csv(R / "session_summary.csv")
+    ss["co2"] = ss[["co2_Wa1", "co2_Wa2"]].mean(axis=1)
+    ss["temp"] = ss[["temp_Wa1", "temp_Wa2"]].mean(axis=1)
+    ss["rh"] = ss[["rh_Wa1", "rh_Wa2"]].mean(axis=1)
+    ss = ss.dropna(subset=["co2"])
+    ss["ac"] = ss.ac.fillna("").astype(str)
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    for ax, k, lab in [(axes[0], "temp", "溫度 (°C)"), (axes[1], "rh", "相對濕度 (%)")]:
+        for _, r in ss.iterrows():
+            pm = r.block.endswith("PM")
+            ac = "冷氣" in r.ac
+            ax.scatter(r.co2, r[k], s=110, marker="s" if ac else "o",
+                       color=COL["Wa2"] if pm else COL["Wa1"], edgecolors="#fcfcfb", lw=1.5, zorder=3)
+            ax.annotate(r.block, (r.co2, r[k]), textcoords="offset points", xytext=(7, 5), fontsize=8, color=MUTED)
+        rho = stats.spearmanr(ss.co2, ss[k]).statistic
+        ax.set(xlabel="Stroop 施測時 CO₂（兩台平均，ppm）", ylabel=lab, title=f"CO₂ vs {lab}：Spearman ρ = {rho:.2f}")
+    h = [plt.Line2D([], [], marker="o", ls="", color=COL["Wa1"], ms=9, label="上午"),
+         plt.Line2D([], [], marker="o", ls="", color=COL["Wa2"], ms=9, label="下午"),
+         plt.Line2D([], [], marker="s", ls="", color=MUTED, ms=9, label="有「冷氣」註記")]
+    axes[1].legend(handles=h, frameon=False, loc="best")
+    fig.suptitle("環境變項共線性：CO₂ 高的節次同時較涼、較乾（開冷氣、關窗）", color=INK, y=1.02)
+    fig.tight_layout()
+    _save(fig, "env_collinearity.png")
+
+
+def temp_rh_adjustment():
+    e = pd.read_csv(R / "temp_humidity_adjustment.csv")
+    e = e[(e.exposure == "Avg") & e.adjust.isin(["none", "+temp", "+temp+rh"])]
+    outs = list(dict.fromkeys(e.outcome))
+    lab = {"none": "不調整", "+temp": "+ 溫度", "+temp+rh": "+ 溫度 + 濕度"}
+    cols = [INK, COL["Wa1"], COL["Wa2"]]
+    fig, axes = plt.subplots(1, len(outs), figsize=(3.6 * len(outs), 4.2))
+    for ax, o in zip(axes, outs):
+        g = e[e.outcome == o].reset_index(drop=True)
+        for i, r in g.iterrows():
+            ax.plot([r.ci_low, r.ci_high], [i, i], color=cols[i], lw=2.6, solid_capstyle="round")
+            ax.scatter(r.beta, i, color=cols[i], s=60, zorder=3, edgecolors="#fcfcfb")
+        ax.axvline(0, color=MUTED, lw=1)
+        ax.set_yticks(range(len(g)), [lab[a] for a in g.adjust])
+        ax.invert_yaxis()
+        ax.set_title(o, fontsize=10)
+        ax.set_xlabel("CO₂ 係數（每 100 ppm）", fontsize=9)
+        ax.grid(axis="y", visible=False)
+    fig.suptitle("加入溫度、濕度後 CO₂ 係數的變化（點＝估計值，線＝95% CI）", color=INK, y=1.03)
+    fig.tight_layout()
+    _save(fig, "temp_rh_adjustment.png")
+
+
+def ventilation_fits():
+    co2 = D.load_all_co2()
+    mb = P.fit_mass_balance(co2)
+    u = mb[mb.usable].reset_index(drop=True)
+    ncol = 4
+    nrow = int(np.ceil(len(u) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(4.2 * ncol, 3.2 * nrow), squeeze=False, sharey=True)
+    for ax in axes.flat[len(u):]:
+        ax.set_visible(False)
+    for ax, (_, r) in zip(axes.flat, u.iterrows()):
+        c = co2[r.sensor]
+        g = c[D._session_id(c.time) == r.session].sort_values("time")
+        t = (g.time - g.time.iloc[0]).dt.total_seconds() / 60
+        g, t = g[t > 2], t[t > 2] - 2
+        g, t = g[t <= r.minutes], t[t <= r.minutes]
+        ax.scatter(t, g.co2, s=8, color=COL["Wa1" if r.sensor == "Wa1" else "Wa2"], alpha=0.6)
+        tt = np.linspace(0, r.minutes, 100)
+        ax.plot(tt, P._rise(tt / 60, r.css, r.ach_per_h, r.c_start), color=INK, lw=2)
+        ax.axhline(1000, color=MUTED, ls="--", lw=0.8)
+        ax.set_title(f"{r.session} {r.sensor}：λ = {r.ach_per_h:.2f}／h，R² = {r.r2:.2f}", fontsize=9.5)
+        ax.set_xlabel("分鐘", fontsize=8.5)
+    for row in axes:
+        row[0].set_ylabel("CO₂ (ppm)")
+    fig.suptitle("質量平衡模型擬合（點＝實測，黑線＝C(t) = Css − (Css − C₀)·e^(−λt)；虛線＝1000 ppm）",
+                 color=INK, y=1.01)
+    fig.tight_layout()
+    _save(fig, "ventilation_fits.png")
+
+
+def power_curve():
+    eff = pd.read_csv(R / "effect_sizes.csv").set_index("key")
+    p = TTestPower()
+    ns = np.arange(5, 61)
+    fig, ax = plt.subplots(figsize=(10, 5.4))
+    items = [("fatigue_now", "自覺疲勞", COL["Avg"]), ("accuracy", "Stroop 正確率", COL["Wa2"]),
+             ("rt_mean", "Stroop 反應時間", COL["Wa1"])]
+    for k, lab, c in items:
+        dz = abs(eff.loc[k, "d_z"])
+        pw = [p.power(effect_size=dz, nobs=n, alpha=0.05) for n in ns]
+        n80 = int(np.ceil(p.solve_power(effect_size=dz, alpha=0.05, power=0.8)))
+        now = int(eff.loc[k, "n_students"])
+        ax.plot(ns, pw, color=c, lw=2.4, label=f"{lab}（|d_z| = {dz:.2f}；80% 需 {n80} 人）")
+        ax.scatter(now, p.power(effect_size=dz, nobs=now, alpha=0.05), color=c, s=70, zorder=3, edgecolors="#fcfcfb")
+    ax.axhline(0.8, color=MUTED, ls="--", lw=1)
+    ax.text(ns[-1], 0.81, "80%", ha="right", va="bottom", fontsize=9, color=MUTED)
+    ax.set(xlabel="配對人數", ylabel="檢定力（雙尾 α = .05）", ylim=(0, 1),
+           title="檢定力曲線：以目前觀察到的效果量推估需要的人數（點＝目前人數）")
+    ax.legend(frameon=False, loc="lower right")
+    fig.tight_layout()
+    _save(fig, "power_curve.png")
+
+
+# ---------------------------------------------------------------- 圖表集
+# (檔名, 標題, 這張圖呈現什麼, 重點)
+BOOK = [
+    ("A. 研究總覽", None, None, None),
+    ("ucf_map", "論證路線圖（UCF）", "中心論點、六個分析步驟與三個研究問題的對應。",
+     "全部圖表都服務同一個論點：CO₂ 升高使自覺疲勞上升，但反應速度不變；通風需約 3 倍換氣量。"),
+    ("data_coverage", "各場次資料完整度", "每個場次有幾位學生、幾份問卷、哪台感測器、幾顆手環與可用貼片。",
+     "09-17 沒有 CO₂；09-30 下午、10-01、10-02 只有一台感測器；可用的貼片數明顯少於收錄數。"),
+    ("B. 環境暴露", None, None, None),
+    ("co2_timeline", "CO₂ 時間序列", "每節課兩台感測器的 CO₂，灰底為 Stroop 施測時段。",
+     "下午與開冷氣的節次 CO₂ 持續上升，多數節次在施測時已超過 1000 ppm。"),
+    ("co2_exposure", "CO₂ 濃度分級時間比例", "每節課的收錄時間中，落在各濃度區間的比例。",
+     "09-21 下午幾乎全程 > 2000 ppm；09-22、09-23 上午幾乎全程 < 1000 ppm。"),
+    ("sensor_agreement", "兩台感測器一致性", "同一時間點兩台讀值的散布圖與 Bland–Altman 圖。",
+     "兩台高度相關，但有系統性差距，且 09-24 起方向反轉，需並排校正。"),
+    ("env_collinearity", "環境變項共線性", "各節課的 CO₂ 與溫度、濕度，依上午／下午與冷氣註記標記。",
+     "CO₂ 高的節次同時較涼、較乾：CO₂、溫度、濕度屬於同一個「開冷氣關窗」狀態，是本研究最主要的限制。"),
+    ("C. 測量品質", None, None, None),
+    ("ecg_quality", "心電貼片品質", "每顆貼片每節課的品質判定與異常 RR 比例。",
+     "只有約一半的貼片節次可用；E2605-02、E2605-05 幾乎每次都是 poor。"),
+    ("hrv_conversion", "每秒心率能否換算 HRV", "貼片逐拍 RR 的真 RMSSD 與兩種每秒心率換算值的比較。",
+     "手環的平滑心率換算出的 RMSSD 約低估 80%，所以 HRV 只能用貼片的逐拍 RR。"),
+    ("stroop_conditions", "Stroop 測驗效度", "中性、一致、不一致三種情境的反應時間。",
+     "每位學生的不一致題比中性題慢（配對差值中位數 27 ms、平均 16 ms），但未達顯著（Friedman p = 0.076；Wilcoxon p = 0.18）。每種情境只有 8 題，"
+     "干擾效應本身不明顯，這也是干擾分數信度低、不宜作為主要結果的原因；建議增加題數。"),
+    ("practice_curve", "練習效應", "反應時間與正確率隨施測次數的變化。",
+     "反應時間在前幾次快速下降、之後趨於穩定，所以所有 Stroop 模型都控制「第幾次施測」；正確率有天花板效應。"),
+    ("D. 檢定選擇與相關", None, None, None),
+    ("assumption_qq", "常態性檢查", "每個結果變項的「高 − 低 CO₂」配對差值 Q-Q 圖。",
+     "8 個結果變項中 7 個必須用無母數，另一個因 n < 15 建議用無母數。"),
+    ("correlation_heatmap", "變項相關矩陣", "整體與個人內 Spearman 相關。",
+     "個人內 CO₂ 與疲勞 ρ = +0.39；CO₂ 與溫度 ρ = −0.87。"),
+    ("E. 主要結果", None, None, None),
+    ("fatigue_vs_co2", "CO₂ 與自覺疲勞（場次層級）", "各場次的平均疲勞與 FSS（負對照）。",
+     "疲勞隨 CO₂ 上升；問「過去 24 小時」的 FSS 則沒有跟著變。"),
+    ("nonparametric", "無母數分析", "個人內 Spearman ρ 與高／低 CO₂ 的配對比較，每點或每線為一位學生。",
+     "疲勞的方向一致（11 人中 8 人上升），反應時間沒有一致方向。"),
+    ("effect_size_forest", "效果量（Hedges' g）", "各結果變項高 vs 低 CO₂ 的 g 與 r_rb，含學生層級 bootstrap 95% CI。",
+     "疲勞 g = +0.53、正確率 g = −0.69（中等）；反應時間小且 CI 含 0；負對照接近 0。"),
+    ("stroop_vs_co2", "CO₂ 與 Stroop 反應時間（場次層級）", "各場次平均反應時間對 CO₂，以及練習效應。",
+     "場次間的差異主要來自練習效應，而不是 CO₂。"),
+    ("temp_rh_adjustment", "溫濕度調整前後的 CO₂ 係數", "各結果變項在不調整、加溫度、加溫度與濕度時的 CO₂ 係數。",
+     "疲勞的係數始終為正，但加入濕度後信賴區間變寬並碰到 0。"),
+    ("hr_vs_co2", "心率與 CO₂ 的時間變化", "每 5 分鐘的平均心率與 CO₂。",
+     "下午 CO₂ 上升時心率常同時下降，但這也可能是坐定後的自然下降，控制時間後效應不穩定。"),
+    ("model_comparison", "感測器比較（ΔAIC）", "用 Wa1、Wa2、兩台平均分別建模，加入 CO₂ 後的 AIC 改善。",
+     "三種暴露來源之間的差距都小於 2，分不出哪一台比較好。"),
+    ("seating_simulation", "座位表是否有幫助", "假設學生吸到的是最近那台的濃度，模擬座位表能否改善模型。",
+     "在目前的效果量下，座位表幾乎不會改變結論。"),
+    ("F. 機制與預測", None, None, None),
+    ("path_diagram", "徑路分析", "piecewise SEM，模型 A（CO₂→疲勞→Stroop）與模型 B（加入心率）。",
+     "CO₂→疲勞成立（β = +0.36）；疲勞→反應時間不成立，中介鏈不成立；模型 B 樣本太小不解讀。"),
+    ("ventilation_fits", "質量平衡擬合", "12 段 CO₂ 上升曲線的實測值與擬合曲線。",
+     "擬合都很好（R² ≥ 0.94），換氣率中位數約 1.2 次／小時，作為情境模擬的依據。"),
+    ("prediction_simulation", "通風情境模擬", "三種換氣率下 50 分鐘課的 CO₂ 軌跡與下課時的疲勞增量。",
+     "換氣率提高到約 3.5 次／小時可把 CO₂ 壓在 1000 ppm，疲勞增量由 +0.49 降到 +0.08 分。"),
+    ("power_curve", "檢定力曲線", "以目前效果量推估不同人數下的檢定力。",
+     "疲勞要達 80% 檢定力需約 24 人（目前 11 人，檢定力約 45%）；反應時間的效果太小，需 66 人。"),
+]
+
+
+def build_pdf():
+    from matplotlib.image import imread
+    plt.rcParams["pdf.fonttype"] = 42
+    out = R / "圖表集.pdf"
+    with PdfPages(out) as pdf:
+        fig = plt.figure(figsize=(11.69, 8.27))
+        fig.text(0.08, 0.78, "高中教室 CO₂ 對學生認知表現影響之預測模型", fontsize=24, color=INK, weight="bold")
+        fig.text(0.08, 0.71, "圖表集（給指導教授）", fontsize=16, color=MUTED)
+        fig.text(0.08, 0.64, "資料期間 2026-09-17 ～ 10-02｜12 位學生｜14 個施測場次｜CO₂ 感測器 × 2", fontsize=12, color=INK)
+        toc, n = [], 0
+        for key, title, _, _ in BOOK:
+            if title is None:
+                toc.append(f"\n{key}")
+            else:
+                n += 1
+                toc.append(f"    圖 {n:02d}　{title}")
+        lines = "\n".join(toc).strip().split("\n")
+        cut = next(i for i, ln in enumerate(lines) if ln.startswith("D."))   # 前三節放左欄，其餘放右欄
+        fig.text(0.08, 0.56, "\n".join(lines[:cut]).rstrip(), fontsize=10.5, color=INK, va="top", linespacing=1.5)
+        fig.text(0.52, 0.56, "\n".join(lines[cut:]), fontsize=10.5, color=INK, va="top", linespacing=1.5)
+        fig.text(0.08, 0.04, "所有圖表的 SVG 版在 results/figures/svg/；分析程式：github.com/wayne990710/LMM_test",
+                 fontsize=9, color=MUTED)
+        pdf.savefig(fig)
+        plt.close(fig)
+        n, section = 0, ""
+        for key, title, what, take in BOOK:
+            if title is None:
+                section = key
+                continue
+            n += 1
+            img = imread(FIG / f"{key}.png")
+            fig = plt.figure(figsize=(11.69, 8.27))
+            fig.text(0.05, 0.955, section, fontsize=10, color=MUTED)
+            fig.text(0.05, 0.915, f"圖 {n:02d}　{title}", fontsize=16, color=INK, weight="bold")
+            h, w = img.shape[:2]
+            box_w, box_h = 0.9, 0.66
+            scale = min(box_w / (w / 11.69), box_h / (h / 8.27))
+            iw, ih = w / 11.69 * scale, h / 8.27 * scale
+            ax = fig.add_axes([0.05 + (box_w - iw) / 2, 0.2 + (box_h - ih) / 2, iw, ih])
+            ax.imshow(img)
+            ax.axis("off")
+            fig.text(0.05, 0.135, f"呈現內容：{what}", fontsize=11, color=INK, wrap=True)
+            fig.text(0.05, 0.085, f"重點：{take}", fontsize=11, color=INK, weight="bold", wrap=True)
+            fig.text(0.95, 0.03, f"{n} / {sum(1 for b in BOOK if b[1])}", ha="right", fontsize=9, color=MUTED)
+            pdf.savefig(fig)
+            plt.close(fig)
+    return out
+
+
+def main():
+    for f in (data_coverage, co2_exposure, ecg_quality_map, stroop_conditions, practice_curve, env_collinearity,
+              temp_rh_adjustment, ventilation_fits, power_curve):
+        f()
+        print("完成", f.__name__)
+    print(build_pdf())
+
+
+if __name__ == "__main__":
+    main()

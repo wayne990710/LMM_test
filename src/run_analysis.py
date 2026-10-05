@@ -309,6 +309,8 @@ def main():
     effect_sizes.main()
     hrv_check.main()
     ucf_map.main()
+    import figure_book
+    figure_book.main()
 
 
 if __name__ == "__main__":
