@@ -7,6 +7,7 @@
 技術細節：[REPORT.md](REPORT.md)（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
 
 圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。**給指導教授的圖表：`results/圖表/`（24 張，依研究流程編號，PNG 300 dpi＋SVG）；每張的說明見 [results/圖表說明.md](results/圖表說明.md)**
+**一頁一圖配說明的 Word／PDF（可直接用 LINE 傳）：[results/CO2研究圖表與說明.docx](results/CO2研究圖表與說明.docx)、[results/CO2研究圖表與說明.pdf](results/CO2研究圖表與說明.pdf)**
 
 ## 資料來源
 | 資料 | 位置 | 是否在本 repo |
@@ -40,6 +41,7 @@ python src/run_analysis.py
 - `src/effect_sizes.py`：檢定選擇（尺度、常態、離群值、天花板）與效果量（Hedges' g、r_rb、LMM d₁₀₀₀，學生層級 bootstrap CI，Holm 校正）
 - `src/hrv_check.py`：檢驗每秒心率能否換算成 HRV（貼片 vs 手環）
 - `src/figure_book.py`：補充圖表（資料完整度、暴露分級、貼片品質、Stroop 效度、練習效應、共線性、溫濕度調整、質量平衡擬合、檢定力）並依序編號輸出到 results/圖表/
+- `src/make_word.py`：把 `results/圖表/` 與 `圖表說明.md` 排成 Word（A4 橫向、中文標楷體／英數 Times New Roman），再用 Word 轉 PDF 並換回 300 dpi 原圖（需安裝 Microsoft Word）
 - `src/ucf_map.py`：UCF 論證路線圖
 - `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 
