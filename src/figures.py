@@ -28,7 +28,7 @@ plt.rcParams.update({
 
 def _save(fig, name):
     FIG.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIG / name, dpi=150, bbox_inches="tight")
+    fig.savefig(FIG / name, dpi=300, bbox_inches="tight")  # 300 dpi：放大或印刷都清楚
     (FIG / "svg").mkdir(exist_ok=True)
     fig.savefig(FIG / "svg" / name.replace(".png", ".svg"), bbox_inches="tight")
     plt.close(fig)

@@ -297,6 +297,9 @@ def main():
     print(allres.round(3).to_string())
 
     # ---------- 6. 讀上面寫出的資料表做：相關矩陣、徑路分析、模擬預測
+    # 這些步驟合計約 20 分鐘；SKIP_FOLLOWUPS=1 時略過，可改成逐一執行各模組的 main()
+    if os.environ.get("SKIP_FOLLOWUPS") == "1":
+        return
     import correlations
     import path_analysis
     import prediction

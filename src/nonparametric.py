@@ -127,7 +127,7 @@ def run_all(specs, threshold=1000, n_perm=10000) -> tuple[pd.DataFrame, dict]:
         hl = paired_high_low(df, y, x, threshold, group) if x.startswith("co2") else {"_pairs": np.empty((0, 2))}
         pm = session_permutation(df, y, x, group, session, n_perm=n_perm)
         tt = tertile_trend(df, y, x, group, session)
-        plot[lab] = {"rho": ws.pop("_rhos").values, "pairs": hl.pop("_pairs").values}
+        plot[lab] = {"rho": np.asarray(ws.pop("_rhos")), "pairs": np.asarray(hl.pop("_pairs"))}
         for r in (ws, hl, pm, tt) if x.startswith("co2") else (ws, pm, tt):
             rows.append({"outcome": lab, "exposure": x, "n_obs": len(df), **r})
     return pd.DataFrame(rows), plot

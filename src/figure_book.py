@@ -1,14 +1,13 @@
 """補齊值得做的圖表，並把全部圖表依研究流程整理成一份 PDF 圖表集（給指導教授）。
 
 執行：python src/figure_book.py（需先跑過 run_analysis.py）
-輸出：results/figures/*.png、results/figures/svg/*.svg、results/圖表集.pdf
+輸出：results/figures/*.png（300 dpi）、results/figures/svg/*.svg，以及依序編號的 results/圖表/
 """
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.backends.backend_pdf import PdfPages
 from scipy import stats
 from statsmodels.stats.power import TTestPower
 
@@ -63,27 +62,36 @@ def data_coverage():
 
 
 def co2_exposure():
-    """每節課的 CO₂ 分級時間比例（兩台感測器的平均）。"""
-    e = pd.read_csv(R / "co2_exposure_by_session.csv")
-    e = e.groupby("session")[["pct_over_1000", "pct_over_1500", "pct_over_2000"]].mean()
+    """每節課的 CO₂ 分級時間比例：兩台感測器的讀值合併計算；該節讀值 < 30 筆的感測器不計入。"""
+    co2 = D.load_all_co2()
+    parts = []
+    for s, c in co2.items():
+        c = c[c.time >= "2026-09-21"].copy()
+        c["session"] = D._session_id(c.time)
+        n = c.groupby("session").co2.transform("size")
+        parts.append(c[n >= 30])
+    allc = pd.concat(parts)
+    bins = [0, 1000, 1500, 2000, np.inf]
+    labs = ["< 1000", "1000–1500", "1500–2000", "> 2000"]
+    allc["band"] = pd.cut(allc.co2, bins, labels=labs, right=False)
+    seg = allc.groupby(["session", "band"], observed=False).size().unstack().fillna(0)
+    seg = seg.div(seg.sum(axis=1), axis=0) * 100
     _, bi = D.load_code_table()
     ac = dict(zip(bi.block, bi.ac))
-    seg = pd.DataFrame({"< 1000": 100 - e.pct_over_1000, "1000–1500": e.pct_over_1000 - e.pct_over_1500,
-                        "1500–2000": e.pct_over_1500 - e.pct_over_2000, "> 2000": e.pct_over_2000})
     fig, ax = plt.subplots(figsize=(12, 6))
     y = np.arange(len(seg))
     left = np.zeros(len(seg))
-    for col, c in zip(seg.columns, STATUS):
+    for col, c in zip(labs, STATUS):
         ax.barh(y, seg[col], left=left, color=c, height=0.62, label=f"{col} ppm", edgecolor="#fcfcfb", lw=1.5)
         left += seg[col].values
     ax.set_yticks(y, [f"{s}　{ac.get(s, '') or ''}" for s in seg.index])
     ax.invert_yaxis()
-    ax.set(xlim=(0, 100), xlabel="該節課收錄時間的比例 (%)",
-           title="各節課 CO₂ 濃度分級（兩台平均；日期後為研究代碼對照表的冷氣註記）")
+    ax.set(xlim=(0, 100), xlabel="該節課收錄時間的比例 (%)", title="各節課 CO₂ 濃度分級")
     ax.legend(ncol=4, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.1))
     ax.grid(axis="y", visible=False)
     fig.tight_layout()
     _save(fig, "co2_exposure.png")
+    seg.round(1).to_csv(R / "co2_exposure_pooled.csv", encoding="utf-8-sig")
 
 
 def ecg_quality_map():
@@ -319,52 +327,21 @@ BOOK = [
 ]
 
 
-def build_pdf():
-    from matplotlib.image import imread
-    plt.rcParams["pdf.fonttype"] = 42
-    out = R / "圖表集.pdf"
-    with PdfPages(out) as pdf:
-        fig = plt.figure(figsize=(11.69, 8.27))
-        fig.text(0.08, 0.78, "高中教室 CO₂ 對學生認知表現影響之預測模型", fontsize=24, color=INK, weight="bold")
-        fig.text(0.08, 0.71, "圖表集（給指導教授）", fontsize=16, color=MUTED)
-        fig.text(0.08, 0.64, "資料期間 2026-09-17 ～ 10-02｜12 位學生｜14 個施測場次｜CO₂ 感測器 × 2", fontsize=12, color=INK)
-        toc, n = [], 0
-        for key, title, _, _ in BOOK:
-            if title is None:
-                toc.append(f"\n{key}")
-            else:
-                n += 1
-                toc.append(f"    圖 {n:02d}　{title}")
-        lines = "\n".join(toc).strip().split("\n")
-        cut = next(i for i, ln in enumerate(lines) if ln.startswith("D."))   # 前三節放左欄，其餘放右欄
-        fig.text(0.08, 0.56, "\n".join(lines[:cut]).rstrip(), fontsize=10.5, color=INK, va="top", linespacing=1.5)
-        fig.text(0.52, 0.56, "\n".join(lines[cut:]), fontsize=10.5, color=INK, va="top", linespacing=1.5)
-        fig.text(0.08, 0.04, "所有圖表的 SVG 版在 results/figures/svg/；分析程式：github.com/wayne990710/LMM_test",
-                 fontsize=9, color=MUTED)
-        pdf.savefig(fig)
-        plt.close(fig)
-        n, section = 0, ""
-        for key, title, what, take in BOOK:
-            if title is None:
-                section = key
-                continue
-            n += 1
-            img = imread(FIG / f"{key}.png")
-            fig = plt.figure(figsize=(11.69, 8.27))
-            fig.text(0.05, 0.955, section, fontsize=10, color=MUTED)
-            fig.text(0.05, 0.915, f"圖 {n:02d}　{title}", fontsize=16, color=INK, weight="bold")
-            h, w = img.shape[:2]
-            box_w, box_h = 0.9, 0.66
-            scale = min(box_w / (w / 11.69), box_h / (h / 8.27))
-            iw, ih = w / 11.69 * scale, h / 8.27 * scale
-            ax = fig.add_axes([0.05 + (box_w - iw) / 2, 0.2 + (box_h - ih) / 2, iw, ih])
-            ax.imshow(img)
-            ax.axis("off")
-            fig.text(0.05, 0.135, f"呈現內容：{what}", fontsize=11, color=INK, wrap=True)
-            fig.text(0.05, 0.085, f"重點：{take}", fontsize=11, color=INK, weight="bold", wrap=True)
-            fig.text(0.95, 0.03, f"{n} / {sum(1 for b in BOOK if b[1])}", ha="right", fontsize=9, color=MUTED)
-            pdf.savefig(fig)
-            plt.close(fig)
+def export_numbered():
+    """依研究流程把圖片依序編號，複製到 results/圖表/（PNG 300 dpi 與 SVG）。說明文字另見 圖表說明.md。"""
+    import shutil
+    out = R / "圖表"
+    if out.exists():
+        shutil.rmtree(out)
+    (out / "svg").mkdir(parents=True)
+    n = 0
+    for key, title, _, _ in BOOK:
+        if title is None:
+            continue
+        n += 1
+        name = f"{n:02d}_{title.replace('／', '_').replace('/', '_')}"
+        shutil.copy(FIG / f"{key}.png", out / f"{name}.png")
+        shutil.copy(FIG / "svg" / f"{key}.svg", out / "svg" / f"{name}.svg")
     return out
 
 
@@ -373,7 +350,7 @@ def main():
               temp_rh_adjustment, ventilation_fits, power_curve):
         f()
         print("完成", f.__name__)
-    print(build_pdf())
+    print(export_numbered())
 
 
 if __name__ == "__main__":
