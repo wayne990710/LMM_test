@@ -1,2 +1,2 @@
 ﻿windows,wearers,median_true_rmssd_ms,median_hr_derived_rmssd_ms,median_ratio_derived_over_true,ratio_q1,ratio_q3,spearman_rho,pearson_r_log,polar_windows,median_polar_hr_derived_rmssd_ms,polar_q1,polar_q3
-127,28,27.884,30.382,1.109,1.032,1.223,0.954,0.966,653,5.444,4.285,6.471
+93,30,26.188,28.221,1.121,1.045,1.207,0.955,0.97,653,5.444,4.285,6.471

@@ -16,6 +16,9 @@ def main():
     sc = pd.read_csv(R / "prediction_scenarios.csv").set_index("scenario")
     vf = pd.read_csv(R / "ventilation_fit.csv")
     cv = pd.read_csv(R / "prediction_validation.csv").iloc[0]
+    hw = pd.read_csv(D.PRIVATE_DIR / "hr_5min_windows.csv")
+    n_hr = int((hw.device_type == "ecg").sum())
+    n_hrv = len(pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv"))
     q = D.ecg_quality()
     q = q[q.quality != "error"]
     fat, acc, rt = eff.loc["fatigue_now"], eff.loc["accuracy"], eff.loc["rt_mean"]
@@ -29,7 +32,7 @@ def main():
                   "\n但 Stroop 反應速度沒有變慢。因此通風守則的依據是「疲勞」而非「反應速度」，"
                   f"\n要把 CO₂ 壓在 1000 ppm，換氣量需從約 {lam:.1f} 提高到 {lam_need:.1f} 次／小時（約 {lam_need / lam:.1f} 倍）。",
         "steps": [
-            ("① 資料品質", f"注意力檢核排除 7 份\n貼片 {int((q.quality == 'good').sum())}/{len(q)} 節可信\n"
+            ("① 資料品質", f"注意力檢核排除 7 份\n貼片逐時段篩選：心率 {n_hr}、HRV {n_hrv} 窗\n"
                           "兩臺感測器 r = 0.97\n→ 只用可信資料"),
             ("② 檢定選擇", f"{len(chk)} 個結果變項中\n{must} 個「必須」用無母數\n其餘因 n < 15「建議」\n"
                           "→ 以無母數為主"),

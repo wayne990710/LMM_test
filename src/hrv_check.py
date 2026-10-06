@@ -19,7 +19,7 @@ RES = D.ROOT / "results"
 
 
 def main():
-    good = D.good_ecg_wearers()
+    good = D.usable_ecg_recordings()
     rr = D.rmssd_windows()                       # 已只含 good 的貼片節次
     rows = []
     for f in D._ecg_files("ecghr"):
@@ -30,7 +30,7 @@ def main():
         h["win"] = h.time.dt.floor("5min")
         for win, g in h.groupby("win"):
             wearer = f"{dev} {D._session_id(pd.Series([win])).iloc[0]}"
-            if wearer not in good or len(g) < 180:
+            if wearer not in good or len(g) < 180:   # 逐時段品質由與 rmssd_windows（≥ 95%）合併時決定
                 continue
             g = g.sort_values("time")
             consec = g.time.diff().dt.total_seconds().values[1:] == 1   # 只用相鄰兩秒都有資料的差值

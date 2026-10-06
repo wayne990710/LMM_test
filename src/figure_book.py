@@ -39,7 +39,7 @@ def data_coverage():
         "CO₂ Wa2（施測時有資料）": ss.co2_Wa2.notna().astype(int),
         "手環（顆）": hw[hw.device_type == "polar"].groupby("session").device.nunique(),
         "心電貼片（收錄顆數）": q.groupby("session").label.nunique(),
-        "心電貼片（品質 good）": q[q.quality == "good"].groupby("session").label.nunique(),
+        "心電貼片（有可用心率時段）": hw[hw.device_type == "ecg"].groupby("session").device.nunique(),
     }
     mat = pd.DataFrame({k: v.reindex(blocks) for k, v in rows.items()}).T.fillna(0)
     norm = mat.div(mat.max(axis=1).replace(0, 1), axis=0)
@@ -128,24 +128,31 @@ def ac_inference():
 
 
 def ecg_quality_map():
-    q = D.ecg_quality()
-    q = q[q.quality != "error"].drop_duplicates(["label", "session"])
-    t = q.pivot(index="label", columns="session", values="quality")
-    bad = q.pivot(index="label", columns="session", values="bad_rr_pct")
-    code = t.replace({"good": 1, "poor": 0}).astype(float)
-    fig, ax = plt.subplots(figsize=(13, 4.6))
-    ax.imshow(code.values, cmap=plt.cm.colors.ListedColormap(["#e9b2ad", "#a8d8bf"]), aspect="auto", vmin=0, vmax=1)
-    for i in range(code.shape[0]):
-        for j in range(code.shape[1]):
-            if not np.isnan(code.values[i, j]):
-                ax.text(j, i, f"{bad.values[i, j]:.0f}%", ha="center", va="center", fontsize=9, color=INK)
-    ax.set_xticks(range(code.shape[1]), code.columns, rotation=35, ha="right")
-    ax.set_yticks(range(code.shape[0]), code.index)
+    """每顆貼片每節課：可用於心率的 5 分鐘時段數（乾淨拍 ≥ 80%）／總時段數，以及可用於 HRV 的時段數（≥ 95%）。"""
+    q = D.ecg_window_quality()
+    q = q[q.beats >= 150]
+    q["session"] = D._session_id(q.win)
+    q["rec"] = q.device + " " + q.session
+    q = q[q.rec.isin(D.usable_ecg_recordings())]
+    g = q.groupby(["device", "session"]).agg(total=("clean", "size"),
+                                             hr=("clean", lambda c: int((c >= D.HR_MIN_CLEAN).sum())),
+                                             hrv=("clean", lambda c: int((c >= D.HRV_MIN_CLEAN).sum()))).reset_index()
+    g["frac"] = g.hr / g.total
+    frac = g.pivot(index="device", columns="session", values="frac")
+    fig, ax = plt.subplots(figsize=(14, 5))
+    cmap = plt.cm.colors.LinearSegmentedColormap.from_list("q", ["#e9b2ad", "#f3e3b5", "#a8d8bf"])
+    ax.imshow(frac.values, cmap=cmap, aspect="auto", vmin=0, vmax=1)
+    for _, r in g.iterrows():
+        i, j = frac.index.get_loc(r.device), frac.columns.get_loc(r.session)
+        ax.text(j, i - 0.12, f"{r.hr}/{r.total}", ha="center", va="center", fontsize=9.5, color=INK)
+        ax.text(j, i + 0.22, f"HRV {r.hrv}", ha="center", va="center", fontsize=7.5, color=MUTED)
+    ax.set_xticks(range(frac.shape[1]), frac.columns, rotation=35, ha="right")
+    ax.set_yticks(range(frac.shape[0]), frac.index)
     ax.grid(False)
-    for s in ax.spines.values():
-        s.set_visible(False)
-    g, n = int((q.quality == "good").sum()), len(q)
-    ax.set_title(f"心電貼片品質（綠＝good、紅＝poor；格內為異常 RR 比例，> 20% 判為 poor）　{g}/{n} 可用", color=INK)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.set_title(f"心電貼片可用時段（上：可用於心率／總時段，乾淨拍 ≥ 80%；下：可用於 HRV，≥ 95%）　"
+                 f"心率 {int(g.hr.sum())}/{int(g.total.sum())}、HRV {int(g.hrv.sum())} 個時段", color=INK, fontsize=11)
     fig.tight_layout()
     _save(fig, "ecg_quality.png")
 

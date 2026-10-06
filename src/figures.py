@@ -277,7 +277,7 @@ def path_diagram(paths: pd.DataFrame, fit: pd.DataFrame, labels: dict, exo_corr:
                 ax.text(x0 - 0.38 - 0.55 * abs(y1 - y0) / 2 - 0.04, (y0 + y1) / 2, f"r = {rv:+.2f}",
                         fontsize=9, color=COL["Wa1"], ha="right", va="center",
                         bbox=dict(fc="#fcfcfb", ec="none", pad=0.5))
-        warn = "" if name == "A" else "\n⚠ 樣本太小，標準化 β > 1 代表共線性，係數不可解讀"
+        warn = "" if name == "A" else "\n⚠ 樣本太小，所有路徑的 bootstrap CI 都包含 0，不解讀"
         title = ("模型 A：CO₂ → 自覺疲勞 → Stroop（控制溫濕度、睡眠、第幾次施測）" if name == "A"
                  else "模型 B：CO₂ → 施測前心率 → 疲勞 → 反應時間（子樣本）")
         ax.set_title(f"{title}\nn = {int(f.n)} 人次、{int(f.students)} 人；Fisher's C = {f.fisher_C:.1f}"

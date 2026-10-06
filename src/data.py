@@ -214,15 +214,45 @@ def ecg_quality() -> pd.DataFrame:
 
 
 def good_ecg_wearers() -> set[str]:
+    """錄音層級品質為 good 的「貼片 × 節次」（只供描述用；分析改用 5 分鐘時段篩選）。"""
     q = ecg_quality()
     g = q.groupby(["label", "session"]).is_good.any()
     return {f"{dev} {ses}" for (dev, ses), ok in g.items() if ok}
 
 
+# 心電篩選改以「5 分鐘時段」為單位（不再整段錄音丟掉）：
+#   心率：時段內乾淨拍 ≥ 80% 即可。驗證：同一段錄音內，異常拍每多 1% 心率只偏高約 0.2 bpm。
+#   HRV ：時段內乾淨拍 ≥ 95%。驗證：同一段錄音內，異常拍每多 1% RMSSD 約高 3%（漏網的錯拍會灌高 HRV）。
+HR_MIN_CLEAN = 0.80
+HRV_MIN_CLEAN = 0.95
+
+
+def usable_ecg_recordings() -> set[str]:
+    """有心電訊號的「貼片 × 節次」（排除 no_signal／error），之後再逐時段篩選。"""
+    q = ecg_quality()
+    q = q[q.quality.isin(["good", "poor"])]
+    return set(q.label + " " + q.session)
+
+
+def ecg_window_quality(minutes: int = 5) -> pd.DataFrame:
+    """每顆貼片每 5 分鐘的乾淨拍比例（clean）與拍數。"""
+    rows = []
+    for f in _ecg_files("ecgrr"):
+        d = pd.read_csv(f, parse_dates=["time"])
+        if d.empty:
+            continue
+        d["win"] = d.time.dt.floor(f"{minutes}min")
+        g = d.groupby("win").agg(clean=("bad", lambda b: float((b == 0).mean())), beats=("bad", "size")).reset_index()
+        g["device"] = f.name.split("_")[1]
+        rows.append(g)
+    return pd.concat(rows).groupby(["device", "win"], as_index=False).agg(clean=("clean", "mean"), beats=("beats", "max"))
+
+
 def load_hr_seconds() -> pd.DataFrame:
     """每秒心率，長格式：time, device, hr。
 
-    手環取自 merged*.csv；貼片取自 ecghr_*.csv（重算版優先），只保留品質 good 的貼片節次。
+    手環取自 merged*.csv；貼片取自 ecghr_*.csv（重算版優先，只含乾淨拍算出的心率）。
+    貼片只排除完全沒訊號的錄音；逐時段的品質篩選在 hr_windows() 進行。
     """
     parts = []
     for f in glob.glob(str(ECG_DIR / "merged*.csv")):
@@ -237,9 +267,9 @@ def load_hr_seconds() -> pd.DataFrame:
     hr = pd.concat(parts).groupby(["time", "device"], as_index=False).hr.mean()
     hr = hr[hr.hr.between(40, 200)]
     hr["device_type"] = np.where(hr.device.str.startswith("E"), "ecg", "polar")
-    good = good_ecg_wearers()
+    usable = usable_ecg_recordings()
     wearer = hr.device + " " + _session_id(hr.time)
-    return hr[(hr.device_type == "polar") | wearer.isin(good)].reset_index(drop=True)
+    return hr[(hr.device_type == "polar") | wearer.isin(usable)].reset_index(drop=True)
 
 
 def _session_id(t: pd.Series) -> pd.Series:
@@ -253,14 +283,18 @@ def hr_windows(hr: pd.DataFrame, minutes: int = 5, min_cover: float = 0.6) -> pd
     h["win"] = h.time.dt.floor(f"{minutes}min")
     w = h.groupby(["device", "device_type", "win"]).agg(hr=("hr", "mean"), n=("hr", "size")).reset_index()
     w = w[w.n >= min_cover * minutes * 60]
+    # 貼片：只留乾淨拍 ≥ HR_MIN_CLEAN 的時段（手環沒有逐拍資料，不適用）
+    q = ecg_window_quality(minutes)
+    w = w.merge(q[["device", "win", "clean"]], on=["device", "win"], how="left")
+    w = w[(w.device_type == "polar") | (w.clean >= HR_MIN_CLEAN)].drop(columns="clean")
     w["session"] = _session_id(w.win)
     w["wearer"] = w.device + " " + w.session  # 裝置 × 節次 = 同一位配戴者
     w["elapsed_min"] = w.groupby("wearer").win.transform(lambda s: (s - s.min()).dt.total_seconds() / 60)
     return w.reset_index(drop=True)
 
 
-def rmssd_windows(minutes: int = 5, min_good: float = 0.8, min_beats: int = 150) -> pd.DataFrame:
-    """心電貼片每 5 分鐘的 RMSSD。只用相鄰兩拍都沒被標記為異常的差值。"""
+def rmssd_windows(minutes: int = 5, min_good: float = HRV_MIN_CLEAN, min_beats: int = 150) -> pd.DataFrame:
+    """心電貼片每 5 分鐘的 RMSSD。只用相鄰兩拍都沒被標記為異常的差值；時段乾淨拍須 ≥ 95%。"""
     rows = []
     for f in _ecg_files("ecgrr"):
         dev = f.name.split("_")[1]
@@ -282,7 +316,7 @@ def rmssd_windows(minutes: int = 5, min_good: float = 0.8, min_beats: int = 150)
     w = pd.DataFrame(rows).groupby(["device", "win"], as_index=False).mean()
     w["session"] = _session_id(w.win)
     w["wearer"] = w.device + " " + w.session
-    w = w[w.wearer.isin(good_ecg_wearers())]
+    w = w[w.wearer.isin(usable_ecg_recordings())]
     w["elapsed_min"] = w.groupby("wearer").win.transform(lambda s: (s - s.min()).dt.total_seconds() / 60)
     return w
 
