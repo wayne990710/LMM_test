@@ -19,7 +19,7 @@ import data as D
 import models as M
 
 RES = D.ROOT / "results"
-C_OUT = 420.0          # 戶外 CO2（ppm）；台北近年背景值約 420–430
+C_OUT = 420.0          # 戶外 CO2（ppm）；臺北近年背景值約 420–430
 CLASS_MIN = 50
 FCOV = "resp_no + sleep_h + sleep_q"
 

@@ -7,12 +7,12 @@
 技術細節：[REPORT.md](REPORT.md)（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
 
 圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。**給指導教授的圖表：`results/圖表/`（24 張，依研究流程編號，PNG 300 dpi＋SVG）；每張的說明見 [results/圖表說明.md](results/圖表說明.md)**
-**一頁一圖配說明的 Word／PDF（可直接用 LINE 傳）：[results/CO2研究圖表與說明.docx](results/CO2研究圖表與說明.docx)、[results/CO2研究圖表與說明.pdf](results/CO2研究圖表與說明.pdf)**
+**一頁一圖配說明的 Word／PDF（可直接用 LINE 傳）：[results/CO2 研究圖表與說明.docx](results/CO2%20研究圖表與說明.docx)、[results/CO2 研究圖表與說明.pdf](results/CO2%20研究圖表與說明.pdf)**
 
 ## 資料來源
 | 資料 | 位置 | 是否在本 repo |
 |---|---|---|
-| CO₂／溫濕度（Wa1、Wa2 兩台 SCD30） | `data/co2/` | ✅（環境資料，不含個資） |
+| CO₂／溫濕度（Wa1、Wa2 兩臺 SCD30） | `data/co2/` | ✅（環境資料，不含個資） |
 | Stroop 逐題紀錄 | `../cognitive_performance_test/output/` | ❌ 含學生班級座號，依 REC 規定不可上傳 |
 | 手環／心電貼片心率、RR | `../ECG/data/` | ❌ 研究參與者生理資料 |
 | 自覺疲勞量表（Google 表單匯出） | `data/private/fatigue_responses.csv` | ❌ 含學生代碼 |
@@ -32,7 +32,7 @@ python src/run_analysis.py
 ## 程式
 - `src/data.py`：讀取與對齊（Stroop 40 秒區間 ±60 秒取 CO₂ 平均；心率／HRV 5 分鐘窗）
 - `src/models.py`：隨機截距 LMM、Nakagawa R²、LOSO 與 5 折交叉驗證
-- `src/run_analysis.py`：Wa1 / Wa2 / 兩台平均 各跑一次並比較
+- `src/run_analysis.py`：Wa1 / Wa2 / 兩臺平均 各跑一次並比較
 - `src/seating_test.py`：座位表是否有用（窮舉所有座位安排 + 模擬）
 - `src/nonparametric.py`：無母數分析（個人內 Spearman＋Wilcoxon、高／低 CO₂ 配對、節次置換檢定、Friedman／Page）
 - `src/path_analysis.py`：徑路分析（piecewise SEM，LMM＋以學生為單位的 cluster bootstrap、Fisher's C）
@@ -50,7 +50,7 @@ python src/run_analysis.py
 
 ## 輸出（`results/`）
 - `model_comparison.csv`：每個結果變項 × 每個 CO₂ 來源的係數、ΔAIC、R²、交叉驗證 RMSE
-- `sensor_agreement.csv`：兩台感測器一致性（Bland–Altman）
+- `sensor_agreement.csv`：兩臺感測器一致性（Bland–Altman）
 - `co2_exposure_by_session.csv`：各節次超過 1000/1500/2000 ppm 的時間比例
 - `seating_exhaustive.csv`、`seating_simulation.csv`：座位表檢驗
 - `session_summary.csv`、`confounding_check.csv`

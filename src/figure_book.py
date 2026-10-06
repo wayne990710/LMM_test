@@ -11,6 +11,7 @@ import pandas as pd
 from scipy import stats
 from statsmodels.stats.power import TTestPower
 
+import ac_status as AC
 import data as D
 import figures as F
 import prediction as P
@@ -62,7 +63,7 @@ def data_coverage():
 
 
 def co2_exposure():
-    """每節課的 CO₂ 分級時間比例：兩台感測器的讀值合併計算；該節讀值 < 30 筆的感測器不計入。"""
+    """每節課的 CO₂ 分級時間比例：兩臺感測器的讀值合併計算；該節讀值 < 30 筆的感測器不計入。"""
     co2 = D.load_all_co2()
     parts = []
     for s, c in co2.items():
@@ -76,8 +77,7 @@ def co2_exposure():
     allc["band"] = pd.cut(allc.co2, bins, labels=labs, right=False)
     seg = allc.groupby(["session", "band"], observed=False).size().unstack().fillna(0)
     seg = seg.div(seg.sum(axis=1), axis=0) * 100
-    _, bi = D.load_code_table()
-    ac = dict(zip(bi.block, bi.ac))
+    ac = AC.load()
     fig, ax = plt.subplots(figsize=(12, 6))
     y = np.arange(len(seg))
     left = np.zeros(len(seg))
@@ -92,6 +92,39 @@ def co2_exposure():
     fig.tight_layout()
     _save(fig, "co2_exposure.png")
     seg.round(1).to_csv(R / "co2_exposure_pooled.csv", encoding="utf-8-sig")
+
+
+def ac_inference():
+    """冷氣狀態判定的證據：每節前 1/3 與後 1/3 的 CO₂ 上升速度，以及最高濃度。"""
+    # reset_index：去掉沒有 CO₂ 的 09-17 後重新編號，否則資料列會和 y 軸標籤錯開一列
+    d = pd.read_csv(D.ROOT / "data" / "ac_status.csv", encoding="utf-8-sig").dropna(subset=["early_slope"])
+    d = d.reset_index(drop=True)
+    col = {"冷氣": COL["Wa2"], "後半冷氣": "#d4a12a", "無冷氣": COL["Wa1"]}
+    fig, (a, b) = plt.subplots(1, 2, figsize=(14, 6), sharey=True, gridspec_kw={"width_ratios": [1.4, 1]})
+    y = np.arange(len(d))
+    for i, r in d.iterrows():
+        c = col.get(r.status, MUTED)
+        inferred = r.source.startswith("由")
+        a.plot([r.early_slope, r.late_slope], [i, i], color=c, lw=2, alpha=0.6)
+        a.scatter(r.early_slope, i, s=70, marker="o", color="#fcfcfb" if inferred else c, edgecolors=c, lw=2, zorder=3)
+        a.scatter(r.late_slope, i, s=90, marker=">", color="#fcfcfb" if inferred else c, edgecolors=c, lw=2, zorder=3)
+        b.barh(i, r.co2_max, color=c, height=0.6, alpha=0.45 if inferred else 0.9, edgecolor=c, lw=1.5)
+    a.axvline(AC.RISING, color=INK, ls="--", lw=1.2)
+    a.text(AC.RISING + 0.5, len(d) - 0.4, f"{AC.RISING:g} ppm／分（判定門檻）", fontsize=9, color=INK, va="top")
+    a.axvline(0, color=MUTED, lw=0.8)
+    a.set(xlabel="CO₂ 上升速度（ppm／分）　●＝前 1/3　▶＝後 1/3", title="CO₂ 累積速度")
+    b.axvline(1000, color=MUTED, ls="--", lw=1)
+    b.axvline(2000, color=INK, ls="--", lw=1)
+    b.set(xlabel="最高 CO₂ (ppm)", title="最高濃度（虛線：1000、2000 ppm）")
+    a.set_yticks(y, [f"{r.session}　{r.label}" for _, r in d.iterrows()])
+    a.invert_yaxis()
+    for ax in (a, b):
+        ax.grid(axis="y", visible=False)
+    h = [plt.Line2D([], [], color=c, lw=6, label=k) for k, c in col.items()] +         [plt.Line2D([], [], marker="s", ls="", color=MUTED, ms=9, label="研究代碼對照表"),
+         plt.Line2D([], [], marker="s", ls="", color="#fcfcfb", markeredgecolor=MUTED, mew=2, ms=9, label="由數據推定")]
+    fig.legend(handles=h, ncol=5, frameon=False, loc="lower center", bbox_to_anchor=(0.5, -0.06))
+    fig.tight_layout()
+    _save(fig, "ac_inference.png")
 
 
 def ecg_quality_map():
@@ -171,20 +204,24 @@ def env_collinearity():
     ss["temp"] = ss[["temp_Wa1", "temp_Wa2"]].mean(axis=1)
     ss["rh"] = ss[["rh_Wa1", "rh_Wa2"]].mean(axis=1)
     ss = ss.dropna(subset=["co2"])
-    ss["ac"] = ss.ac.fillna("").astype(str)
+    lab_ac = AC.load()
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     for ax, k, lab in [(axes[0], "temp", "溫度 (°C)"), (axes[1], "rh", "相對濕度 (%)")]:
         for _, r in ss.iterrows():
-            pm = r.block.endswith("PM")
-            ac = "冷氣" in r.ac
-            ax.scatter(r.co2, r[k], s=110, marker="s" if ac else "o",
-                       color=COL["Wa2"] if pm else COL["Wa1"], edgecolors="#fcfcfb", lw=1.5, zorder=3)
+            col = COL["Wa2"] if r.block.endswith("PM") else COL["Wa1"]
+            st = lab_ac.get(r.block, "")
+            ac = st.startswith(("冷氣", "後半冷氣"))   # 兩種「後半冷氣」節次的 Stroop 都在冷氣開啟後施測
+            inferred = "推定" in st
+            ax.scatter(r.co2, r[k], s=110, marker="s" if ac else "o", zorder=3, lw=2,
+                       color="#fcfcfb" if inferred else col, edgecolors=col)
             ax.annotate(r.block, (r.co2, r[k]), textcoords="offset points", xytext=(7, 5), fontsize=8, color=MUTED)
         rho = stats.spearmanr(ss.co2, ss[k]).statistic
-        ax.set(xlabel="Stroop 施測時 CO₂（兩台平均，ppm）", ylabel=lab, title=f"CO₂ vs {lab}：Spearman ρ = {rho:.2f}")
+        ax.set(xlabel="Stroop 施測時 CO₂（兩臺平均，ppm）", ylabel=lab, title=f"CO₂ vs {lab}：Spearman ρ = {rho:.2f}")
     h = [plt.Line2D([], [], marker="o", ls="", color=COL["Wa1"], ms=9, label="上午"),
          plt.Line2D([], [], marker="o", ls="", color=COL["Wa2"], ms=9, label="下午"),
-         plt.Line2D([], [], marker="s", ls="", color=MUTED, ms=9, label="有「冷氣」註記")]
+         plt.Line2D([], [], marker="s", ls="", color=MUTED, ms=9, label="冷氣（研究代碼對照表）"),
+         plt.Line2D([], [], marker="s", ls="", color="#fcfcfb", markeredgecolor=MUTED, mew=2, ms=9,
+                    label="冷氣（由數據推定）")]
     axes[1].legend(handles=h, frameon=False, loc="best")
     fig.suptitle("環境變項共線性：CO₂ 高的節次同時較涼、較乾（開冷氣、關窗）", color=INK, y=1.02)
     fig.tight_layout()
@@ -272,17 +309,19 @@ BOOK = [
     ("A. 研究總覽", None, None, None),
     ("ucf_map", "論證路線圖（UCF）", "中心論點、六個分析步驟與三個研究問題的對應。",
      "全部圖表都服務同一個論點：CO₂ 升高使自覺疲勞上升，但反應速度不變；通風需約 3 倍換氣量。"),
-    ("data_coverage", "各場次資料完整度", "每個場次有幾位學生、幾份問卷、哪台感測器、幾顆手環與可用貼片。",
-     "09-17 沒有 CO₂；09-30 下午、10-01、10-02 只有一台感測器；可用的貼片數明顯少於收錄數。"),
+    ("data_coverage", "各場次資料完整度", "每個場次有幾位學生、幾份問卷、哪臺感測器、幾顆手環與可用貼片。",
+     "09-17 沒有 CO₂；09-30 下午、10-01、10-02 只有一臺感測器；可用的貼片數明顯少於收錄數。"),
     ("B. 環境暴露", None, None, None),
-    ("co2_timeline", "CO₂ 時間序列", "每節課兩台感測器的 CO₂，灰底為 Stroop 施測時段。",
+    ("co2_timeline", "CO₂ 時間序列", "每節課兩臺感測器的 CO₂，灰底為 Stroop 施測時段。",
      "下午與開冷氣的節次 CO₂ 持續上升，多數節次在施測時已超過 1000 ppm。"),
     ("co2_exposure", "CO₂ 濃度分級時間比例", "每節課的收錄時間中，落在各濃度區間的比例。",
      "09-21 下午幾乎全程 > 2000 ppm；09-22、09-23 上午幾乎全程 < 1000 ppm。"),
-    ("sensor_agreement", "兩台感測器一致性", "同一時間點兩台讀值的散布圖與 Bland–Altman 圖。",
-     "兩台高度相關，但有系統性差距，且 09-24 起方向反轉，需並排校正。"),
+    ("sensor_agreement", "兩臺感測器一致性", "同一時間點兩臺讀值的散布圖與 Bland–Altman 圖。",
+     "兩臺高度相關，但有系統性差距，且 09-24 起方向反轉，需並排校正。"),
     ("env_collinearity", "環境變項共線性", "各節課的 CO₂ 與溫度、濕度，依上午／下午與冷氣註記標記。",
      "CO₂ 高的節次同時較涼、較乾：CO₂、溫度、濕度屬於同一個「開冷氣關窗」狀態，是本研究最主要的限制。"),
+    ("ac_inference", "冷氣狀態判定", "每節課前段與後段的 CO₂ 上升速度與最高濃度，用來推定沒有註記的節次是否開冷氣。",
+     "09-21 下午、09-22 下午、09-23 下午推定為冷氣，09-21 上午推定為後半冷氣，09-22、09-23 上午為無冷氣。"),
     ("C. 測量品質", None, None, None),
     ("ecg_quality", "心電貼片品質", "每顆貼片每節課的品質判定與異常 RR 比例。",
      "只有約一半的貼片節次可用；E2605-02、E2605-05 幾乎每次都是 poor。"),
@@ -311,9 +350,9 @@ BOOK = [
      "疲勞的係數始終為正，但加入濕度後信賴區間變寬並碰到 0。"),
     ("hr_vs_co2", "心率與 CO₂ 的時間變化", "每 5 分鐘的平均心率與 CO₂。",
      "下午 CO₂ 上升時心率常同時下降，但這也可能是坐定後的自然下降，控制時間後效應不穩定。"),
-    ("model_comparison", "感測器比較（ΔAIC）", "用 Wa1、Wa2、兩台平均分別建模，加入 CO₂ 後的 AIC 改善。",
-     "三種暴露來源之間的差距都小於 2，分不出哪一台比較好。"),
-    ("seating_simulation", "座位表是否有幫助", "假設學生吸到的是最近那台的濃度，模擬座位表能否改善模型。",
+    ("model_comparison", "感測器比較（ΔAIC）", "用 Wa1、Wa2、兩臺平均分別建模，加入 CO₂ 後的 AIC 改善。",
+     "三種暴露來源之間的差距都小於 2，分不出哪一臺比較好。"),
+    ("seating_simulation", "座位表是否有幫助", "假設學生吸到的是最近那臺的濃度，模擬座位表能否改善模型。",
      "在目前的效果量下，座位表幾乎不會改變結論。"),
     ("F. 機制與預測", None, None, None),
     ("path_diagram", "徑路分析", "piecewise SEM，模型 A（CO₂→疲勞→Stroop）與模型 B（加入心率）。",
@@ -331,9 +370,10 @@ def export_numbered():
     """依研究流程把圖片依序編號，複製到 results/圖表/（PNG 300 dpi 與 SVG）。說明文字另見 圖表說明.md。"""
     import shutil
     out = R / "圖表"
-    if out.exists():
-        shutil.rmtree(out)
-    (out / "svg").mkdir(parents=True)
+    (out / "svg").mkdir(parents=True, exist_ok=True)
+    # 只刪舊圖檔、保留資料夾：資料夾若被檔案總管或 OneDrive 開著，整個刪除會失敗
+    for old in [*out.glob("*.png"), *(out / "svg").glob("*.svg")]:
+        old.unlink()
     n = 0
     for key, title, _, _ in BOOK:
         if title is None:
@@ -346,7 +386,8 @@ def export_numbered():
 
 
 def main():
-    for f in (data_coverage, co2_exposure, ecg_quality_map, stroop_conditions, practice_curve, env_collinearity,
+    AC.build()
+    for f in (data_coverage, co2_exposure, ac_inference, ecg_quality_map, stroop_conditions, practice_curve, env_collinearity,
               temp_rh_adjustment, ventilation_fits, power_curve):
         f()
         print("完成", f.__name__)

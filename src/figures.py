@@ -58,7 +58,7 @@ def co2_timeline(co2, trials):
     for row in axes:
         row[0].set_ylabel("CO₂ (ppm)")
     h, l = axes[0, 1].get_legend_handles_labels()
-    fig.suptitle("兩台感測器的 CO₂ 時間序列（灰底 = Stroop 施測時段；虛線 = 1000 / 2000 ppm）", y=1.06, color=INK)
+    fig.suptitle("兩臺感測器的 CO₂ 時間序列（灰底 = Stroop 施測時段；虛線 = 1000 / 2000 ppm）", y=1.06, color=INK)
     fig.legend(h, l, loc="upper center", bbox_to_anchor=(0.5, 1.025), ncol=3, frameon=False)
     fig.tight_layout()
     _save(fig, "co2_timeline.png")
@@ -76,27 +76,32 @@ def sensor_agreement(pair):
     for v, ls in [(d.mean(), "-"), (d.mean() - 1.96 * d.std(), "--"), (d.mean() + 1.96 * d.std(), "--")]:
         b.axhline(v, color=MUTED, lw=1, ls=ls)
         b.text(m.max(), v, f" {v:.0f}", va="center", color=MUTED)
-    b.set(xlabel="兩台平均 (ppm)", ylabel="Wa1 − Wa2 (ppm)", title="Bland–Altman：平均差與 95% 一致界限")
+    b.set(xlabel="兩臺平均 (ppm)", ylabel="Wa1 − Wa2 (ppm)", title="Bland–Altman：平均差與 95% 一致界限")
     fig.tight_layout()
     _save(fig, "sensor_agreement.png")
 
 
 def stroop_vs_co2(blk):
-    b = blk.dropna(subset=["co2_Wa1"])
+    b = blk.dropna(subset=["co2_Wa1", "co2_Wa2"], how="all")
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
+
+    def label(ax, d, xcol):
+        # 依橫軸排序後，標籤交錯放在點的上方與下方，避免相鄰場次的字疊在一起
+        for k, (_, r) in enumerate(d.sort_values(xcol).iterrows()):
+            ax.annotate(r.block, (r[xcol], r.rt_mean), textcoords="offset points",
+                        xytext=(6, 7) if k % 2 == 0 else (6, -13), fontsize=8, color=MUTED)
+
     for ax, s in zip(axes[:2], ["Wa1", "Wa2"]):
         bb = b.dropna(subset=[f"co2_{s}"])
         se = bb.rt_sd / np.sqrt(bb.n_students)
         ax.errorbar(bb[f"co2_{s}"], bb.rt_mean, yerr=se, fmt="o", ms=8, color=COL[s], capsize=3)
-        for _, r in bb.iterrows():
-            ax.annotate(r.block, (r[f"co2_{s}"], r.rt_mean), textcoords="offset points", xytext=(6, 6),
-                        fontsize=8, color=MUTED)
+        label(ax, bb, f"co2_{s}")
         ax.set(xlabel=f"{s} 施測時 CO₂ (ppm)", ylabel="平均反應時間 (ms)", title=f"{s}：各場次平均 ± SE")
     ax = axes[2]
-    ax.plot(blk.mean_test_no, blk.rt_mean, "o-", color=INK, ms=8)
-    for _, r in blk.iterrows():
-        ax.annotate(r.block, (r.mean_test_no, r.rt_mean), textcoords="offset points", xytext=(6, 6), fontsize=8,
-                    color=MUTED)
+    d = blk.dropna(subset=["mean_test_no", "rt_mean"])
+    order = d.sort_values("mean_test_no")   # 依橫軸排序再連線；依日期連線會在 09-23 PM → 09-24 AM 往回折
+    ax.plot(order.mean_test_no, order.rt_mean, "o-", color=INK, ms=8)
+    label(ax, d, "mean_test_no")
     ax.set(xlabel="平均第幾次做 Stroop", ylabel="平均反應時間 (ms)", title="練習效應：做越多次越快")
     fig.tight_layout()
     _save(fig, "stroop_vs_co2.png")
@@ -122,24 +127,29 @@ def model_comparison(res):
 
 
 def hr_vs_co2(hw):
-    sessions = sorted(hw.dropna(subset=["co2_Avg"]).session.unique())
+    # 描述用圖：CO₂ 取「有資料的感測器」的平均（模型則只用兩臺都有資料的時段）；
+    # 若用嚴格的兩臺平均，只有一臺收錄的節次（例如 09-30 PM 只有 Wa2）會整欄空白
+    hw = hw.assign(co2_any=hw[["co2_Wa1", "co2_Wa2"]].mean(axis=1, skipna=True))
+    cnt = hw.dropna(subset=["co2_any"]).groupby("session").win.nunique()
+    sessions = sorted(cnt[cnt >= 3].index)
     fig, axes = plt.subplots(2, len(sessions), figsize=(3.2 * len(sessions), 6), sharey="row", sharex="col")
     for j, sess in enumerate(sessions):
-        g = hw[hw.session == sess].groupby("win").agg(hr=("hr", "mean"), co2=("co2_Avg", "mean")).dropna()
+        g = hw[hw.session == sess].groupby("win").agg(hr=("hr", "mean"), co2=("co2_any", "mean")).dropna()
         axes[0, j].plot(g.index, g.hr, color=INK)
         axes[1, j].plot(g.index, g.co2, color=COL["Avg"])
         axes[0, j].set_title(sess, fontsize=10)
         axes[1, j].xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(4))
         axes[1, j].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
     axes[0, 0].set_ylabel("所有配戴者平均心率 (bpm)")
-    axes[1, 0].set_ylabel("CO₂ 兩台平均 (ppm)")
+    axes[1, 0].set_ylabel("CO₂（有資料的感測器平均，ppm）")
     fig.suptitle("每 5 分鐘：心率（上）與 CO₂（下）", y=1.02, color=INK)
     fig.tight_layout()
     _save(fig, "hr_vs_co2.png")
 
 
 def fatigue_vs_co2(blk):
-    b = blk.dropna(subset=["co2_Wa1", "fatigue_now"])
+    # 任一臺感測器有資料就畫（原本只要 Wa1 沒資料就整場略過，會漏掉 09-30 PM、10-02 AM）
+    b = blk.dropna(subset=["fatigue_now"]).dropna(subset=["co2_Wa1", "co2_Wa2"], how="all")
     fig, (a, c) = plt.subplots(1, 2, figsize=(11, 4.4))
     for _, r in b.iterrows():
         x = np.nanmean([r.co2_Wa1, r.co2_Wa2])
@@ -148,9 +158,9 @@ def fatigue_vs_co2(blk):
                   zorder=3)
         a.annotate(r.block, (x, r.fatigue_now), textcoords="offset points", xytext=(6, 6), fontsize=8, color=MUTED)
         c.scatter(x, r.fss, s=70, color=MUTED if pm else "#fcfcfb", edgecolors=MUTED, lw=2, zorder=3)
-    a.set(xlabel="填寫前 3 分鐘 CO₂（兩台平均；09-21 AM 只有 Wa1）", ylabel="平均自覺疲勞（1–7）",
+    a.set(xlabel="該節 Stroop 施測時 CO₂（有資料的感測器平均）", ylabel="平均自覺疲勞（1–7）",
           title="現在的疲勞程度（實心 = 下午，空心 = 上午）")
-    c.set(xlabel="填寫前 3 分鐘 CO₂", ylabel="平均 FSS（1–7）", title="負對照：FSS 問「過去 24 小時」", ylim=a.get_ylim())
+    c.set(xlabel="該節 Stroop 施測時 CO₂（有資料的感測器平均）", ylabel="平均 FSS（1–7）", title="負對照：FSS 問「過去 24 小時」", ylim=a.get_ylim())
     fig.tight_layout()
     _save(fig, "fatigue_vs_co2.png")
 
@@ -168,15 +178,15 @@ def seating_simulation(sim):
         ax.grid(axis="x", visible=False)
     h, l = axes[0].get_legend_handles_labels()
     fig.legend(h, l, loc="lower center", bbox_to_anchor=(0.5, -0.08), ncol=2, frameon=False)
-    fig.suptitle("假設「學生吸到的是最近那台」為真：座位表能幫上忙的機率", y=1.03, color=INK)
+    fig.suptitle("假設「學生吸到的是最近那臺」為真：座位表能幫上忙的機率", y=1.03, color=INK)
     fig.tight_layout()
     _save(fig, "seating_simulation.png")
 
 
 def nonparametric(plot: dict, summary: pd.DataFrame):
     """左：每位學生的個人內 Spearman ρ（一點一人，不標代碼）；右：高／低 CO2 配對。"""
-    rho_keys = [k for k in plot if k.endswith("（兩台平均）")]
-    pair_keys = ["自覺疲勞（兩台平均）", "Stroop 反應時間（兩台平均）"]
+    rho_keys = [k for k in plot if k.endswith("（兩臺平均）")]
+    pair_keys = ["自覺疲勞（兩臺平均）", "Stroop 反應時間（兩臺平均）"]
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.8), gridspec_kw={"width_ratios": [1.6, 1, 1]})
     ax = axes[0]
     for i, k in enumerate(rho_keys):
@@ -187,7 +197,7 @@ def nonparametric(plot: dict, summary: pd.DataFrame):
         p = summary[(summary.outcome == k) & summary.method.str.startswith("個人內")].p.iloc[0]
         ax.text(i, 1.08, f"p = {p:.2f}", ha="center", fontsize=8.5, color=MUTED)
     ax.axhline(0, color=MUTED, lw=1)
-    ax.set_xticks(range(len(rho_keys)), [k.replace("（兩台平均）", "") for k in rho_keys], fontsize=8.5,
+    ax.set_xticks(range(len(rho_keys)), [k.replace("（兩臺平均）", "") for k in rho_keys], fontsize=8.5,
                   rotation=20, ha="right")
     ax.set(ylim=(-1.1, 1.2), ylabel="個人內 Spearman ρ（CO₂ vs 結果）",
            title="每點 = 一位學生；橫線 = 中位數（Wilcoxon 檢定中位數 ≠ 0）")
@@ -200,7 +210,7 @@ def nonparametric(plot: dict, summary: pd.DataFrame):
         row = summary[(summary.outcome == k) & summary.method.str.startswith("高／低")].iloc[0]
         ax.set_xticks([0, 1], ["CO₂ < 1000", "CO₂ ≥ 1000"])
         ax.set_xlim(-0.3, 1.3)
-        name = k.replace("（兩台平均）", "")
+        name = k.replace("（兩臺平均）", "")
         ax.set_title(f"{name}：每線一人\nHL 中位差 {row.hl_diff_high_minus_low:+.2f}，p = {row.p:.3f}",
                      fontsize=10)
         ax.grid(axis="x", visible=False)

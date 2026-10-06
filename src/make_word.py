@@ -2,7 +2,7 @@
 
 版面：A4 橫向；第 1 頁是封面與目錄，之後每張圖從新的一頁開始：圖號與標題 → 滿版的圖 → 說明。
 執行：python src/make_word.py（需先跑過 figure_book.py；轉 PDF 需要電腦裝有 Microsoft Word）
-輸出：results/CO2研究圖表與說明.docx、results/CO2研究圖表與說明.pdf
+輸出：results/CO2 研究圖表與說明.docx、results/CO2 研究圖表與說明.pdf
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import data as D
 R = D.ROOT / "results"
 FIG_DIR = R / "圖表"
 MD = R / "圖表說明.md"
-OUT = R / "CO2研究圖表與說明.docx"
+OUT = R / "CO2 研究圖表與說明.docx"
 
 FONT_ZH = "標楷體"            # 中文
 FONT_EN = "Times New Roman"   # 英文與數字
@@ -297,11 +297,18 @@ def restore_full_resolution(pdf) -> None:
     _, figs = parse_md(MD.read_text(encoding="utf-8"))
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False).name
     doc = pymupdf.open(pdf)
-    for i, f in enumerate(figs):
-        page = doc[i + 1]                         # 第 1 頁是封面
+    files = {f"圖 {f['num']}": FIG_DIR / f["file"] for f in figs}
+    done = set()
+    for page in doc:
         imgs = page.get_images(full=True)
-        assert len(imgs) == 1, f"第 {i + 2} 頁應該只有一張圖"
-        page.replace_image(imgs[0][0], filename=str(FIG_DIR / f["file"]))
+        if not imgs:
+            continue                              # 封面，或說明溢出到下一頁的純文字頁
+        # 依頁面上的「圖 NN」標題對應原圖，不假設頁碼順序
+        key = next((ln.strip()[:4] for ln in page.get_text().splitlines() if re.match(r"圖 \d\d", ln.strip())), "")
+        assert key in files and len(imgs) == 1, f"第 {page.number + 1} 頁對不到圖：{key!r}"
+        page.replace_image(imgs[0][0], filename=str(files[key]))
+        done.add(key)
+    assert done == set(files), f"沒有換到原圖：{sorted(set(files) - done)}"
     doc.save(tmp, garbage=4, deflate=True)
     doc.close()
     shutil.move(tmp, pdf)

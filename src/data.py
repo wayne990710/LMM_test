@@ -298,7 +298,7 @@ def add_window_env(w: pd.DataFrame, co2: dict[str, pd.DataFrame], minutes: int =
     return w
 
 
-# ---------------------------------------------------------------- 兩台感測器比對
+# ---------------------------------------------------------------- 兩臺感測器比對
 def paired_sensors(co2: dict[str, pd.DataFrame], tol_s: int = 20) -> pd.DataFrame:
     a = co2["Wa1"].rename(columns=lambda c: c if c == "time" else f"{c}_Wa1")
     b = co2["Wa2"].rename(columns=lambda c: c if c == "time" else f"{c}_Wa2")

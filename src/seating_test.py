@@ -1,9 +1,9 @@
 """座位表有沒有用？用兩種方法直接檢驗。
 
 1. 窮舉：把每位學生指派到 Wa1 或 Wa2（2^n 種座位安排全部試一遍），
-   以「最近那台」當個人暴露量重跑 LMM，看係數、p 值、AIC 最多能變多少。
-2. 模擬：假設真相就是「學生吸到的是最近那台的濃度」，而且 CO2 真的有效應，
-   用正確座位表建模是否能比兩台平均（不需座位表）明顯更好（ΔAIC > 2）。
+   以「最近那臺」當個人暴露量重跑 LMM，看係數、p 值、AIC 最多能變多少。
+2. 模擬：假設真相就是「學生吸到的是最近那臺的濃度」，而且 CO2 真的有效應，
+   用正確座位表建模是否能比兩臺平均（不需座位表）明顯更好（ΔAIC > 2）。
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def exhaustive(df: pd.DataFrame, y: str, covars: str) -> dict:
 
 
 def simulate(df: pd.DataFrame, y: str, covars: str, betas=(0, 5, 10, 20), nsim=200, seed=1) -> pd.DataFrame:
-    """真相 = 最近那台。beta 單位：每 100 ppm 的效應。"""
+    """真相 = 最近那臺。beta 單位：每 100 ppm 的效應。"""
     rng = np.random.default_rng(seed)
     base = M.fit_lmm(f"{y} ~ {covars}", df, "student")
     fixed = np.asarray(base.predict(df), dtype=float)

@@ -1,4 +1,4 @@
-"""主程式：整理資料 → 分別用 Wa1、Wa2（與兩台平均）的 CO2 建 LMM → 比較哪一台與結果最貼合。
+"""主程式：整理資料 → 分別用 Wa1、Wa2（與兩臺平均）的 CO2 建 LMM → 比較哪一臺與結果最貼合。
 
 執行：python src/run_analysis.py
 輸出：results/（模型層級結果，可公開）、data/private/（逐人資料，已 gitignore）
@@ -18,7 +18,7 @@ import nonparametric as NP
 import seating_test as ST
 
 RES = D.ROOT / "results"
-EXPOSURES = ["Wa1", "Wa2", "Avg"]  # Avg = 兩台平均，代表「整間教室」
+EXPOSURES = ["Wa1", "Wa2", "Avg"]  # Avg = 兩臺平均，代表「整間教室」
 
 
 def add_exposures(df: pd.DataFrame) -> pd.DataFrame:
@@ -85,7 +85,7 @@ def main():
     D.PRIVATE_DIR.mkdir(parents=True, exist_ok=True)
     co2 = D.load_all_co2()
 
-    # ---------- 1. 兩台感測器一致性
+    # ---------- 1. 兩臺感測器一致性
     pair = D.paired_sensors(co2)
     pair = pair[pair.time >= "2026-09-21"]
     agree = []
@@ -256,18 +256,18 @@ def main():
     # 逐人心率用「每節課平均」，避免節次內 CO2 與上課經過時間一起上升的問題
     pws = pw.groupby(["student", "session"]).agg(hr=("hr", "mean"), co2_Avg=("co2_Avg", "mean")).reset_index()
     late = both[both.test_no >= 4]  # 反應時間在第 4 次以後趨於穩定（練習效應）
-    np_specs = [("自覺疲勞（兩台平均）", fboth, "fatigue_now", "co2_Avg", "student", "block"),
+    np_specs = [("自覺疲勞（兩臺平均）", fboth, "fatigue_now", "co2_Avg", "student", "block"),
                 ("自覺疲勞（Wa1）", fboth, "fatigue_now", "co2_Wa1", "student", "block"),
                 ("自覺疲勞（Wa2）", fboth, "fatigue_now", "co2_Wa2", "student", "block"),
                 ("自覺疲勞 vs 溫度", fboth, "fatigue_now", "temp_Avg", "student", "block"),
                 ("自覺疲勞 vs 濕度", fboth, "fatigue_now", "rh_Avg", "student", "block"),
-                ("Stroop 反應時間（兩台平均）", both, "rt_mean", "co2_Avg", "student", "block"),
+                ("Stroop 反應時間（兩臺平均）", both, "rt_mean", "co2_Avg", "student", "block"),
                 ("Stroop 反應時間（Wa1）", both, "rt_mean", "co2_Wa1", "student", "block"),
                 ("Stroop 反應時間（Wa2）", both, "rt_mean", "co2_Wa2", "student", "block"),
-                ("Stroop 反應時間，第 4 次以後（兩台平均）", late, "rt_mean", "co2_Avg", "student", "block"),
-                ("Stroop 干擾分數（兩台平均）", both, "interference", "co2_Avg", "student", "block"),
-                ("Stroop 正確率（兩台平均）", both, "accuracy", "co2_Avg", "student", "block"),
-                ("心率，每節平均（兩台平均）", pws, "hr", "co2_Avg", "student", "session")]
+                ("Stroop 反應時間，第 4 次以後（兩臺平均）", late, "rt_mean", "co2_Avg", "student", "block"),
+                ("Stroop 干擾分數（兩臺平均）", both, "interference", "co2_Avg", "student", "block"),
+                ("Stroop 正確率（兩臺平均）", both, "accuracy", "co2_Avg", "student", "block"),
+                ("心率，每節平均（兩臺平均）", pws, "hr", "co2_Avg", "student", "session")]
     np_sum, np_plot = NP.run_all(np_specs)
     np_sum.round(4).to_csv(RES / "nonparametric.csv", index=False, encoding="utf-8-sig")
 
