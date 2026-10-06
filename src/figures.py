@@ -381,6 +381,16 @@ def assumption_qq(qq: dict, checks: pd.DataFrame):
             sl, ic = np.polyfit(th, v, 1)
             xx = np.array([th.min(), th.max()])
             ax.plot(xx, ic + sl * xx, color=MUTED, lw=1.2, ls="--")
+        else:
+            # 人數太少畫不出 Q-Q 圖：留下格子並寫明原因，避免看起來像程式出錯
+            ax.text(0.5, 0.5, f"只有 {len(v)} 人\n無法做常態性檢查", ha="center", va="center", fontsize=11,
+                    color=MUTED, transform=ax.transAxes)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(f"{k}\nn = {int(c.n_students)}；不做推論", fontsize=9.5, color=MUTED)
+            ax.set_xlabel("常態理論分位數", fontsize=9)
+            ax.set_ylabel("高 − 低 CO₂ 差值", fontsize=9)
+            continue
         must = c.decision.startswith("必須")
         ax.set_title(f"{k}\nn = {int(c.n_students)}；SW p = {c.shapiro_diff_p:.2f} → {c.decision}",
                      fontsize=9.5, color=COL["Wa2"] if must else INK)
