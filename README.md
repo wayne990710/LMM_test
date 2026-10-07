@@ -46,7 +46,7 @@ python src/run_analysis.py
 - `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 
 `data/private/patch_letters.csv`（貼片字母 → 編號，範本見 `patch_letters_TEMPLATE.csv`）存在時，
-會自動加跑逐人心率模型與「CO₂ → 施測前心率 → 反應時間」中介檢驗；補上 09-21 ～ 09-23 的字母對照，也能把這段期間的 HRV 納入逐人分析。
+會自動加跑逐人心率模型與「CO₂ → 施測前心率 → 反應時間」中介檢驗。09-21 ～ 09-23 施測時沒有記錄字母與貼片編號的對應，這段期間的生理資料無法連到個人。
 
 ## 輸出（`results/`）
 - `model_comparison.csv`：每個結果變項 × 每個 CO₂ 來源的係數、ΔAIC、R²、交叉驗證 RMSE
