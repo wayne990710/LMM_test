@@ -78,6 +78,52 @@ def coefficient_forest():
     _save(fig, "02_LMM 係數")
 
 
+def spearman_heatmap():
+    """兩兩個人內 Spearman ρ。上方三列：環境 × 依變量；下方：依變量 × 依變量（下三角）。"""
+    s = pd.read_csv(R / "spearman_pairs.csv")
+    dvs = ["疲勞程度", "反應時間", "正確率", "干擾分數", "瞬時心率", "心率變異度"]
+    rows = ["CO₂", "溫度", "濕度"] + dvs[1:]
+    look = {}
+    for _, r in s.iterrows():
+        look[(r["變項 1"], r["變項 2"])] = look[(r["變項 2"], r["變項 1"])] = r
+    cmap = plt.cm.colors.LinearSegmentedColormap.from_list("div", ["#2a78d6", "#eeede9", "#e34948"])
+    fig, ax = plt.subplots(figsize=(10.5, 8.2))
+    M = np.full((len(rows), len(dvs)), np.nan)
+    for i, a in enumerate(rows):
+        for j, b in enumerate(dvs):
+            r = look.get((a, b))
+            if r is None or (a in dvs and dvs.index(a) <= j):
+                continue
+            if pd.notna(r.get("ρ")):
+                M[i, j] = r["ρ"]
+    ax.imshow(M, cmap=cmap, vmin=-0.6, vmax=0.6, aspect="auto")
+    for i, a in enumerate(rows):
+        for j, b in enumerate(dvs):
+            r = look.get((a, b))
+            if r is None or (a in dvs and dvs.index(a) <= j):
+                continue
+            if pd.isna(r.get("ρ")):
+                ax.text(j, i, f"樣本不足\n{int(r['筆數'])} 筆、{int(r['學生'])} 人", ha="center", va="center",
+                        fontsize=8, color=MUTED)
+                continue
+            star = "*" if r["FDR 校正 p"] < 0.05 else ""
+            ax.text(j, i - 0.12, f"{r['ρ']:+.2f}{star}", ha="center", va="center", fontsize=11, color=INK,
+                    fontweight="bold" if star else "normal")
+            ax.text(j, i + 0.22, f"n = {int(r['筆數'])}，p = {r.p:.3f}", ha="center", va="center", fontsize=7.5,
+                    color=MUTED)
+    ax.axhline(2.5, color=INK, lw=1.5)
+    ax.set_xticks(range(len(dvs)), dvs)
+    ax.set_yticks(range(len(rows)), rows)
+    ax.xaxis.tick_top()
+    ax.grid(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.set_title("個人內 Spearman 相關（每位學生先減去自己的平均）\n粗體＊＝FDR 校正後 p < .05；"
+                 "p 為學生內置換檢定", color=INK, fontsize=11, pad=34)
+    fig.tight_layout()
+    _save(fig, "03_兩兩相關")
+
+
 def main():
     sample_by_session()
     coefficient_forest()
