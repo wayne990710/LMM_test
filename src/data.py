@@ -350,7 +350,9 @@ def add_session_co2(w: pd.DataFrame, session_col: str = "session", min_cover: fl
     避免同一節課內因某臺斷線而在「平均」與「單臺」之間切換，造成人為跳動（兩臺有 ±200 ppm 的系統差）。
     """
     w = w.copy()
-    cov = w.groupby(session_col)[["co2_Wa1", "co2_Wa2"]].apply(lambda g: g.notna().mean())
+    # 涵蓋率只算「至少一臺有資料」的列：在兩臺都沒收錄的時間施測的人，不該讓整節課改用單臺
+    any_ = w[["co2_Wa1", "co2_Wa2"]].notna().any(axis=1)
+    cov = w[any_].groupby(session_col)[["co2_Wa1", "co2_Wa2"]].apply(lambda g: g.notna().mean())
     src = {}
     for ses, r in cov.iterrows():
         if r.co2_Wa1 >= min_cover and r.co2_Wa2 >= min_cover:

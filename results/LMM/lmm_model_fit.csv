@@ -1,0 +1,7 @@
+﻿依變量,公式,筆數,學生,邊際 R²,條件 R²,學生間變異,學生×節次變異,殘差變異
+疲勞程度,fatigue_now ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生),99,11,0.2906,0.4743,0.5512,,1.5772
+反應時間,rt_mean ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生),94,11,0.0399,0.6207,5710.2415,,3729.5904
+正確率,accuracy ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生),94,11,0.036,0.1619,0.0008,,0.005
+干擾分數,interference ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生),94,11,0.1476,0.1911,301.0162,,5607.5701
+瞬時心率,hr ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生) + (1 | 學生×節次),355,10,0.1414,0.8964,0.0,115.5965,15.8569
+心率變異度 log(RMSSD),log_rmssd ~ co2h + temp + rh + headcount + ac + sleep_h + sleep_q  +  (1 | 學生) + (1 | 學生×節次),131,5,0.089,0.9182,0.0,0.4117,0.0406
