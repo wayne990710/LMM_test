@@ -4,12 +4,15 @@
   自變量：CO₂（每 100 ppm）、溫度（°C）、濕度（%）——三者同時放入模型
   依變量：疲勞程度、反應時間、正確率、干擾分數、瞬時心率、心率變異度（各一個模型）
   控制變因：現場人數、冷氣（開／關）、睡眠時長、睡眠品質
+            睡眠來自疲勞量表，只放在疲勞模型（做法 C）；其他模型若也控制睡眠，沒填量表的人會被排除，
+            這個做法（A）當作敏感度分析。
   隨機效應：學生隨機截距；心率／HRV 為每 5 分鐘一筆，另加「學生 × 節次」隨機截距
             （同一節課內的多個時段彼此相關）
 
 資料使用原則：有資料的都納入（各依變量的人數、筆數不同，見 lmm_sample_size.csv）。
   - 疲勞量表：排除注意力檢核未通過的問卷。
   - 心率／HRV：只有能從研究代碼對照表對應到學生的節次（貼片編號、手環編號）。
+  - HRV：5 分鐘時段內乾淨心跳 ≥ 95%（異常 ≤ 5%，依 Kubios 建議），並以 Malik 20% 準則剔除錯拍。
   - 每節課固定一個 CO₂ 來源：兩臺都完整就用平均，否則用有完整資料的那一臺。
 
 執行：python src/lmm_main.py（需先跑過 run_analysis.py 產生 data/private/ 的資料表）
@@ -32,6 +35,15 @@ OUT = D.ROOT / "results" / "LMM"
 IVS = [("co2h", "CO₂（每 100 ppm）"), ("temp", "溫度（°C）"), ("rh", "濕度（%）")]
 CONTROLS = [("headcount", "現場人數"), ("ac", "冷氣（開 = 1）"), ("sleep_h", "睡眠時長（小時）"),
             ("sleep_q", "睡眠品質")]
+HRV_CLEAN = 0.95
+SLEEP = ("sleep_h", "sleep_q")
+
+
+def controls_for(y: str, sleep_all: bool = False) -> list[str]:
+    """主要分析（C）：睡眠只控制在疲勞模型；sleep_all=True 為敏感度分析（A）：每個模型都控制睡眠。"""
+    return [c for c, _ in CONTROLS if c not in SLEEP or sleep_all or y == "fatigue_now"]
+
+
 DVS = [  # 代號, 名稱, 單位, 資料層級
     ("fatigue_now", "疲勞程度", "分（1–7）", "人次"),
     ("rt_mean", "反應時間", "ms", "人次"),
@@ -94,7 +106,7 @@ def window_level(co2, ac, switch, headcount, sleep) -> dict[str, pd.DataFrame]:
     dm = dm.dropna(subset=["dev"])
     dm["wearer"] = dm.dev + " " + dm.block
     hw = D.add_session_co2(D.add_window_env(D.hr_windows(D.load_hr_seconds()), co2))
-    rw = D.add_session_co2(D.add_window_env(D.rmssd_windows(), co2))
+    rw = D.add_session_co2(D.add_window_env(D.rmssd_windows(min_good=HRV_CLEAN), co2))
     rw["log_rmssd"] = np.log(rw.rmssd)
     out = {}
     for name, w in (("hr", hw), ("hrv", rw)):
@@ -113,8 +125,8 @@ def window_level(co2, ac, switch, headcount, sleep) -> dict[str, pd.DataFrame]:
 
 
 # ---------------------------------------------------------------- 模型
-def fit(d: pd.DataFrame, y: str, window: bool):
-    rhs = " + ".join([v for v, _ in IVS] + [c for c, _ in CONTROLS if d[c].nunique() > 1])
+def fit(d: pd.DataFrame, y: str, window: bool, controls: list[str]):
+    rhs = " + ".join([v for v, _ in IVS] + [c for c in controls if d[c].nunique() > 1])
     f = f"{y} ~ {rhs}"
     vc = {"blk": "0 + C(stu_block)"} if window else None
     m = smf.mixedlm(f, d, groups=d.student, vc_formula=vc)
@@ -152,22 +164,22 @@ def main():
     source = {"fatigue_now": pl["fatigue"], "rt_mean": pl["stroop"], "accuracy": pl["stroop"],
               "interference": pl["stroop"], "hr": wl["hr"], "log_rmssd": wl["hrv"]}
 
-    need = [v for v, _ in IVS] + [c for c, _ in CONTROLS]
     coef, fits, sizes, vifs = [], [], [], []
     labels = dict(IVS + CONTROLS)
     for y, name, unit, level in DVS:
+        ctrl = controls_for(y)
+        need = [v for v, _ in IVS] + ctrl
         raw = source[y].dropna(subset=[y])
         d = raw.dropna(subset=need).reset_index(drop=True)
         window = level == "5 分鐘"
         # 缺漏原因：沒有 CO₂（09-17 兩臺都沒收錄）、沒有睡眠（該次沒填量表）
         sizes.append({"依變量": name, "資料層級": level, "有測到的筆數": len(raw),
                       "有測到的學生": raw.student.nunique(), "缺 CO₂／溫濕度": int(raw[["co2h", "temp", "rh"]].isna().any(axis=1).sum()),
-                      "缺睡眠（該次沒填量表）": int(raw[["co2h", "temp", "rh"]].notna().all(axis=1).sum()
-                                         - raw.dropna(subset=["co2h", "temp", "rh"]).dropna(subset=["sleep_h", "sleep_q"]).shape[0]),
+                      "控制睡眠": "是" if "sleep_h" in ctrl else "否",
                       "納入模型的筆數": len(d), "納入模型的學生": d.student.nunique(),
                       "節次數": d.block.nunique(), "每位學生筆數（最少–最多）":
                       f"{d.groupby('student').size().min()}–{d.groupby('student').size().max()}"})
-        r, f = fit(d, y, window)
+        r, f = fit(d, y, window, ctrl)
         used = [v for v in need if v in r.fe_params.index]
         vifs.append({"依變量": name, **{labels[k]: v for k, v in vif(d, used).items()}})
         ci = r.conf_int()
@@ -178,7 +190,7 @@ def main():
                          "係數": r.fe_params[term], "SE": r.bse[term], "95% CI 下限": ci.loc[term, 0],
                          "95% CI 上限": ci.loc[term, 1], "p": r.pvalues[term],
                          "標準化係數": r.fe_params[term] * d[term].std() / sd_y})
-        for term in [c for c, _ in CONTROLS if c not in used]:
+        for term in [c for c in ctrl if c not in used]:
             coef.append({"依變量": name, "單位": unit, "變項": labels[term], "角色": "控制變因",
                          "係數": np.nan, "p": np.nan, "備註": "此資料中沒有變化，無法估計"})
         X = r.model.exog
@@ -194,20 +206,18 @@ def main():
         d.drop(columns=[c for c in d.columns if c.startswith(("nread", "co2h_Wa"))], errors="ignore").to_csv(
             D.PRIVATE_DIR / f"lmm_{y}.csv", index=False, encoding="utf-8-sig")
 
-    # 敏感度：不放睡眠（睡眠來自量表，沒填量表的 Stroop／心率資料也能納入）
+    # 敏感度（做法 A）：每個模型都控制睡眠；沒填量表的人次會被排除
     sens = []
     for y, name, unit, level in DVS:
-        d = source[y].dropna(subset=[y] + [v for v, _ in IVS] + ["headcount", "ac"]).reset_index(drop=True)
-        saved = CONTROLS[:]
-        CONTROLS[:] = [c for c in CONTROLS if c[0] not in ("sleep_h", "sleep_q")]
-        r, _ = fit(d, y, level == "5 分鐘")
-        CONTROLS[:] = saved
+        ctrl = controls_for(y, sleep_all=True)
+        d = source[y].dropna(subset=[y] + [v for v, _ in IVS] + ctrl).reset_index(drop=True)
+        r, _ = fit(d, y, level == "5 分鐘", ctrl)
         ci = r.conf_int()
         for term, lab in IVS:
             sens.append({"依變量": name, "變項": lab, "筆數": len(d), "學生": d.student.nunique(),
                          "係數": r.fe_params[term], "95% CI 下限": ci.loc[term, 0], "95% CI 上限": ci.loc[term, 1],
                          "p": r.pvalues[term], "標準化係數": r.fe_params[term] * d[term].std() / d[y].std()})
-    pd.DataFrame(sens).round(4).to_csv(OUT / "lmm_sensitivity_no_sleep.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(sens).round(4).to_csv(OUT / "lmm_sensitivity_sleep_all.csv", index=False, encoding="utf-8-sig")
 
     pd.DataFrame(sizes).to_csv(OUT / "lmm_sample_size.csv", index=False, encoding="utf-8-sig")
     coef = pd.DataFrame(coef)
