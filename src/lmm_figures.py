@@ -124,6 +124,64 @@ def spearman_heatmap():
     _save(fig, "03_兩兩相關")
 
 
+def path_diagrams():
+    """四個中介模型的徑路圖。環境 → 中介、中介 → 結果都畫；環境 → 結果的直接效果只畫顯著的。"""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    c = pd.read_csv(R / "path_coefficients.csv")
+    c = c[c["角色"] == "路徑"]
+    info = pd.read_csv(R / "path_models.csv").set_index("模型")
+    ind = pd.read_csv(R / "path_indirect.csv")
+    models = list(dict.fromkeys(c["模型"]))
+    fig, axes = plt.subplots(2, 2, figsize=(17, 12.5))
+    for ax, name in zip(axes.flat, models):
+        g = c[c["模型"] == name]
+        meds = (["瞬時心率", "疲勞程度"] if "序列" in name else ["瞬時心率"] if "心率" in name else ["疲勞程度"])
+        tos = list(dict.fromkeys(g["到"]))
+        outs = [v for v in tos if v not in meds]
+        pos = {"CO₂": (0, 3.2), "溫度": (0, 2.0), "濕度": (0, 0.8)}
+        if len(meds) == 1:
+            pos[meds[0]] = (1.5, 2.0)
+        else:
+            pos[meds[0]], pos[meds[1]] = (1.25, 3.3), (1.75, 0.7)
+        for k, o in enumerate(outs):
+            pos[o] = (3.0, 2.0 if len(outs) == 1 else 3.3 - k * 1.3)
+        ax.set_xlim(-0.6, 3.6)
+        ax.set_ylim(-0.3, 4.1)
+        ax.axis("off")
+        for k, (x, y) in pos.items():
+            key = k in meds
+            ax.add_patch(FancyBboxPatch((x - 0.36, y - 0.2), 0.72, 0.4, boxstyle="round,pad=0.02,rounding_size=0.06",
+                                        fc="#fcfcfb", ec=INK if key else MUTED, lw=2 if key else 1.2, zorder=3))
+            ax.text(x, y, k, ha="center", va="center", fontsize=11, zorder=4, fontweight="bold" if key else "normal")
+        hidden = 0
+        for _, r in g.iterrows():
+            a, b = r["從"], r["到"]
+            sig = r["bootstrap 下限"] > 0 or r["bootstrap 上限"] < 0
+            direct = a in ("CO₂", "溫度", "濕度") and b in outs
+            if direct and not sig:
+                hidden += 1
+                continue
+            (x0, y0), (x1, y1) = pos[a], pos[b]
+            ax.add_patch(FancyArrowPatch((x0, y0), (x1, y1), arrowstyle="-|>", mutation_scale=14, shrinkA=34,
+                                         shrinkB=34, color=INK if sig else "#b5b3ac", lw=2.2 if sig else 1.0,
+                                         ls="-" if sig else (0, (4, 3)), zorder=2,
+                                         connectionstyle="arc3,rad=0.12" if direct else "arc3,rad=0"))
+            t = 0.42 if not direct else 0.5
+            ax.text(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, f"{r['β']:+.2f}", fontsize=9, ha="center", va="center",
+                    color=INK if sig else MUTED, fontweight="bold" if sig else "normal",
+                    bbox=dict(fc="#fcfcfb", ec="none", pad=0.8), zorder=5)
+        n_sig = int(ind[ind["模型"] == name]["顯著"].sum())
+        i = info.loc[name]
+        ax.set_title(f"{name}\n{int(i['人次'])} 人次、{int(i['學生'])} 人；顯著的間接效果：{n_sig} 條", fontsize=11.5,
+                     color=INK)
+        ax.text(1.5, -0.25, f"另有 {hidden} 條不顯著的直接效果（環境 → 結果）未畫出", ha="center", fontsize=8.5,
+                color=MUTED)
+    fig.text(0.5, 0.005, "數字為標準化 β。黑色實線：以學生為單位 bootstrap 95% CI 不含 0；灰色虛線：含 0。"
+             "每條方程式都控制人數、冷氣；疲勞的方程式另控制睡眠時長與品質。", ha="center", fontsize=10, color=MUTED)
+    fig.tight_layout(rect=(0, 0.02, 1, 1))
+    _save(fig, "04_徑路分析")
+
+
 def main():
     sample_by_session()
     coefficient_forest()

@@ -23,7 +23,7 @@ from make_word import ACCENT, FONT_EN, INK, MUTED, _apply_fonts, add_rich, keep_
 
 R = D.ROOT / "results" / "LMM"
 OUT = R / "LMM 分析結果.docx"
-FIGS = [R / "01_各節次樣本數.png", R / "02_LMM 係數.png", R / "03_兩兩相關.png"]
+FIGS = [R / "01_各節次樣本數.png", R / "02_LMM 係數.png", R / "03_兩兩相關.png", R / "04_徑路分析.png"]
 W = 21.0 - 2 * 2.0   # A4 直式，左右邊界 2 cm
 LINE = 17
 
@@ -325,6 +325,52 @@ def build():
         "p 值：如果其實沒有相關，碰巧得到這麼強（或更強）ρ 的機率。p < .05 視為顯著；"
         "同時檢定很多組時要看校正後的 p。",
         "相關不代表因果：例如 CO₂ 與疲勞的相關，也可能是因為兩者都和「下午、開冷氣」有關。",
+    ], size=10.5)
+
+    # 8. 徑路分析
+    feas = pd.read_csv(R / "path_feasibility.csv")
+    pm = pd.read_csv(R / "path_models.csv")
+    pc = pd.read_csv(R / "path_coefficients.csv")
+    pi_ = pd.read_csv(R / "path_indirect.csv")
+    h1(doc, "八、徑路分析（中介效果）", new_page=True)
+    para(doc, "檢查環境是否「透過」某個中介因子影響結果，例如 CO₂ → 疲勞 → 反應時間。"
+              "間接效果 ＝ a（環境 → 中介）× b（中介 → 結果，已控制環境）。只要 a 或 b 其中一條不成立，中介就不成立。")
+    para(doc, "表 5　候選路徑與樣本數。中介分析需要同一人次同時有環境、中介因子與結果；"
+              "兩條路徑都是中等效果時，約需 70–80 人次才有 80% 檢定力（Fritz & MacKinnon, 2007）：")
+    rows = [["路徑", "人次", "學生", "判斷"]] + [[r["路徑"], int(r["人次"]), int(r["學生"]), r["判斷"]]
+                                                for _, r in feas.iterrows()]
+    table(doc, rows, [6.0, 1.8, 1.8, 7.4])
+    bullets(doc, [
+        "心率變異度的三條路徑都不到 20 人次，不做。",
+        "每條方程式都是學生隨機截距 LMM，三個自變量同時放入，並控制人數與冷氣；疲勞的方程式另控制睡眠。"
+        "變項都先標準化，係數為標準化 β。",
+        "間接效果的 95% 信賴區間以「學生」為單位 bootstrap 重抽 2,000 次；區間不含 0 才算顯著。",
+    ], size=10.5)
+    figure(doc, R / "04_徑路分析.png", "圖 4　四個中介模型。黑色實線為 bootstrap 95% CI 不含 0 的路徑，灰色虛線為含 0；"
+                                     "環境 → 結果的直接效果只畫出顯著的。")
+    n_ind, n_sig = len(pi_), int(pi_["顯著"].sum())
+    para(doc, f"**結果**：共檢驗 {n_ind} 條間接路徑，**沒有任何一條顯著**。各模型的 a、b 路徑：")
+    sig = lambda r: r["bootstrap 下限"] > 0 or r["bootstrap 上限"] < 0   # noqa: E731
+    a_sig = pc[(pc["角色"] == "路徑") & pc["從"].isin(["CO₂", "溫度", "濕度"]) & pc["到"].isin(["疲勞程度", "瞬時心率"])
+               & ~((pc["模型"] == "B2 心率中介（→ 疲勞）") & (pc["到"] == "疲勞程度"))]
+    b_sig = pc[(pc["角色"] == "路徑") & pc["從"].isin(["疲勞程度", "瞬時心率"])]
+    rows = [["模型", "a 路徑（環境 → 中介）有成立的", "b 路徑（中介 → 結果）有成立的"]]
+    for _, m in pm.iterrows():
+        a = a_sig[(a_sig["模型"] == m["模型"]) & a_sig.apply(sig, axis=1)]
+        b = b_sig[(b_sig["模型"] == m["模型"]) & b_sig.apply(sig, axis=1)]
+        fa = "、".join(f"{r['從']}→{r['到']} {r['β']:+.2f}" for _, r in a.iterrows()) or "無"
+        fb = "、".join(f"{r['從']}→{r['到']} {r['β']:+.2f}" for _, r in b.iterrows()) or "無"
+        rows.append([f"{m['模型']}（{int(m['人次'])} 人次）", fa, fb])
+    table(doc, rows, [5.0, 6.0, 6.0])
+    bullets(doc, [
+        "**疲勞中介（樣本足夠）**：環境 → 疲勞（a）與疲勞 → Stroop（b）都不成立，所以 CO₂ 沒有透過疲勞影響 Stroop。"
+        "CO₂ 對反應時間的效果是直接效果（β = +0.29），沒有經過疲勞。",
+        "**心率中介（樣本偏小）**：環境 → 心率（a）有成立（CO₂、濕度越高，該節平均心率越高），"
+        "但心率 → Stroop、心率 → 疲勞（b）都不成立，所以中介不成立。",
+        "**序列中介**：環境 → 心率 → 疲勞 → Stroop 每一段都不成立。",
+        "結論：目前資料中，找不到環境透過疲勞或心率影響認知表現的中介路徑；斷在「中介 → 結果」這一段。"
+        "心率相關的模型只有 43–52 人次，只能偵測較大的效果，較小的中介效果可能存在但測不到。",
+        "注意：這裡的心率是「整節課的平均」，與前面每 5 分鐘一筆的 LMM 不同，所以 CO₂ 對心率的方向不能直接比較。",
     ], size=10.5)
 
     keep_full_resolution(doc)
