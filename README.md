@@ -6,7 +6,7 @@
 
 技術細節：[REPORT.md](REPORT.md)（變項類別、LMM、無母數、徑路分析、模擬預測）。數值總表：[FACTS.md](FACTS.md)。
 
-圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。**給指導教授的圖表：`results/圖表/`（24 張，依研究流程編號，PNG 300 dpi＋SVG）；每張的說明見 [results/圖表說明.md](results/圖表說明.md)**
+圖表：`results/figures/`（PNG）與 `results/figures/svg/`（SVG，文字可編輯）。**給指導教授的圖表：`results/圖表/`（25 張，依研究流程編號，PNG 300 dpi＋SVG）；每張的說明見 [results/圖表說明.md](results/圖表說明.md)**
 **一頁一圖配說明的 Word／PDF（可直接用 LINE 傳）：[results/CO2 研究圖表與說明.docx](results/CO2%20研究圖表與說明.docx)、[results/CO2 研究圖表與說明.pdf](results/CO2%20研究圖表與說明.pdf)**
 
 ## 資料來源
@@ -40,18 +40,19 @@ python src/run_analysis.py
 - `src/prediction.py`：CO₂ 質量平衡擬合、通風情境模擬、疲勞預測（bootstrap 不確定性）、留一節次交叉驗證
 - `src/effect_sizes.py`：檢定選擇（尺度、常態、離群值、天花板）與效果量（Hedges' g、r_rb、LMM d₁₀₀₀，學生層級 bootstrap CI，Holm 校正）
 - `src/hrv_check.py`：檢驗每秒心率能否換算成 HRV（貼片 vs 手環）
-- `src/figure_book.py`：補充圖表（資料完整度、暴露分級、貼片品質、Stroop 效度、練習效應、共線性、溫濕度調整、質量平衡擬合、檢定力）並依序編號輸出到 results/圖表/
+- `src/figure_book.py`：補充圖表（資料完整度、暴露分級、貼片品質、Stroop 效度、共線性、溫濕度調整、CO₂ 與 HRV、質量平衡擬合、檢定力）並依序編號輸出到 results/圖表/
 - `src/make_word.py`：把 `results/圖表/` 與 `圖表說明.md` 排成 Word（A4 橫向、中文標楷體／英數 Times New Roman），再用 Word 轉 PDF 並換回 300 dpi 原圖（需安裝 Microsoft Word）
 - `src/ucf_map.py`：UCF 論證路線圖
 - `src/figures.py`：圖表（PNG＋SVG；不畫可辨識個人的資料）
 
 `data/private/patch_letters.csv`（貼片字母 → 編號，範本見 `patch_letters_TEMPLATE.csv`）存在時，
-會自動加跑逐人心率模型與「CO₂ → 施測前心率 → 反應時間」中介檢驗。
+會自動加跑逐人心率模型與「CO₂ → 施測前心率 → 反應時間」中介檢驗；補上 09-21 ～ 09-23 的字母對照，也能把這段期間的 HRV 納入逐人分析。
 
 ## 輸出（`results/`）
 - `model_comparison.csv`：每個結果變項 × 每個 CO₂ 來源的係數、ΔAIC、R²、交叉驗證 RMSE
 - `sensor_agreement.csv`：兩臺感測器一致性（Bland–Altman）
 - `co2_exposure_by_session.csv`：各節次超過 1000/1500/2000 ppm 的時間比例
 - `seating_exhaustive.csv`、`seating_simulation.csv`：座位表檢驗
+- `hr_hrv_main.csv`、`hrv_by_session.csv`：心率與 HRV 主要模型（節次內、跨節次、敏感度分析）與各節次 HRV 平均
 - `session_summary.csv`、`confounding_check.csv`
 - `figures/*.png`

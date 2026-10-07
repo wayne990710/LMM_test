@@ -19,6 +19,10 @@ def main():
     hw = pd.read_csv(D.PRIVATE_DIR / "hr_5min_windows.csv")
     n_hr = int((hw.device_type == "ecg").sum())
     n_hrv = len(pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv"))
+    ph = pd.read_csv(R / "hr_hrv_main.csv")
+    hr_in = ph[ph.outcome.str.startswith("心率")].iloc[0]
+    hrv_in = ph[(ph.level == "節次內") & ph.threshold.str.contains("主要")].iloc[0]
+    hrv_sess = ph[ph.level == "節次平均（Spearman）"].iloc[0]
     q = D.ecg_quality()
     q = q[q.quality != "error"]
     fat, acc, rt = eff.loc["fatigue_now"], eff.loc["accuracy"], eff.loc["rt_mean"]
@@ -32,7 +36,7 @@ def main():
                   "\n但 Stroop 反應速度沒有變慢。因此通風守則的依據是「疲勞」而非「反應速度」，"
                   f"\n要把 CO₂ 壓在 1000 ppm，換氣量需從約 {lam:.1f} 提高到 {lam_need:.1f} 次／小時（約 {lam_need / lam:.1f} 倍）。",
         "steps": [
-            ("① 資料品質", f"注意力檢核排除 7 份\n貼片逐時段篩選：心率 {n_hr}、HRV {n_hrv} 窗\n"
+            ("① 資料品質", f"注意力檢核排除 7 份\n貼片逐時段篩選：心率 {n_hr}、HRV {n_hrv} 窗\n（HRV 加 Malik 20% 剔除錯拍）\n"
                           "兩臺感測器 r = 0.97\n→ 只用可信資料"),
             ("② 檢定選擇", f"{len(chk)} 個結果變項中\n{must} 個「必須」用無母數\n其餘因 n < 15「建議」\n"
                           "→ 以無母數為主"),
@@ -47,7 +51,9 @@ def main():
         ],
         "questions": [
             ("研究問題一：CO₂ 與認知表現的動態關聯",
-             "疲勞 ↑（中，方向一致，n 偏小）\n正確率 ↓（中，部分受施測順序影響）\n反應時間：無變慢\n心率／HRV：資料不足",
+             f"疲勞 ↑（中，方向一致，n 偏小）\n正確率 ↓（中）；反應時間：無變慢\n"
+             f"心率：節次內 {hr_in.beta:+.2f} bpm／100 ppm（p = {hr_in.p:.2f}）\n"
+             f"HRV：節次內 {hrv_in.pct_per_100ppm:+.1f}%（n.s.）；跨節次 ρ = {hrv_sess.rho:+.2f}（p = {hrv_sess.p:.2f}）",
              "部分"),
             ("研究問題二：建構 LMM 預測模型",
              "群體層級：CO₂ 對疲勞有穩定斜率\n個人層級：預測力有限\n（留一節次只改善 4%）\n→ 適合情境比較，不適合個人預測",

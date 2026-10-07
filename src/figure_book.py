@@ -128,7 +128,8 @@ def ac_inference():
 
 
 def ecg_quality_map():
-    """每顆貼片每節課：可用於心率的 5 分鐘時段數（乾淨拍 ≥ 80%）／總時段數，以及可用於 HRV 的時段數（≥ 95%）。"""
+    """每顆貼片每節課：可用於心率的 5 分鐘時段數（乾淨拍 ≥ 80%）／總時段數，以及可算出 HRV 的時段數
+    （乾淨拍 ≥ 80%，且 Malik 篩選後仍有 ≥ 60 組相鄰拍差）。"""
     q = D.ecg_window_quality()
     q = q[q.beats >= 150]
     q["session"] = D._session_id(q.win)
@@ -136,7 +137,11 @@ def ecg_quality_map():
     q = q[q.rec.isin(D.usable_ecg_recordings())]
     g = q.groupby(["device", "session"]).agg(total=("clean", "size"),
                                              hr=("clean", lambda c: int((c >= D.HR_MIN_CLEAN).sum())),
-                                             hrv=("clean", lambda c: int((c >= D.HRV_MIN_CLEAN).sum()))).reset_index()
+                                             ).reset_index()
+    rw = pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv")
+    rw = rw[rw.clean >= D.HRV_MIN_CLEAN].groupby(["device", "session"]).size().rename("hrv")
+    g = g.merge(rw, left_on=["device", "session"], right_index=True, how="left").fillna({"hrv": 0})
+    g["hrv"] = g.hrv.astype(int)
     g["frac"] = g.hr / g.total
     frac = g.pivot(index="device", columns="session", values="frac")
     fig, ax = plt.subplots(figsize=(14, 5))
@@ -151,7 +156,7 @@ def ecg_quality_map():
     ax.grid(False)
     for sp in ax.spines.values():
         sp.set_visible(False)
-    ax.set_title(f"心電貼片可用時段（上：可用於心率／總時段，乾淨拍 ≥ 80%；下：可用於 HRV，≥ 95%）　"
+    ax.set_title(f"心電貼片可用時段（上：可用於心率／總時段，乾淨拍 ≥ 80%；下：可算 HRV，≥ 80% + Malik 20%）　"
                  f"心率 {int(g.hr.sum())}/{int(g.total.sum())}、HRV {int(g.hrv.sum())} 個時段", color=INK, fontsize=11)
     fig.tight_layout()
     _save(fig, "ecg_quality.png")
@@ -180,29 +185,6 @@ def stroop_conditions():
     fig.suptitle("Stroop 測驗效度檢核：三種情境的反應時間", color=INK, y=1.02)
     fig.tight_layout()
     _save(fig, "stroop_conditions.png")
-
-
-def practice_curve():
-    ps = pd.read_csv(D.PRIVATE_DIR / "stroop_person_sessions.csv")
-    g = ps.groupby("test_no")
-    s = pd.DataFrame({"n": g.size(), "rt_med": g.rt_mean.median(), "rt_q1": g.rt_mean.quantile(0.25),
-                      "rt_q3": g.rt_mean.quantile(0.75), "acc_med": g.accuracy.median(),
-                      "acc_q1": g.accuracy.quantile(0.25), "acc_q3": g.accuracy.quantile(0.75)})
-    s = s[s.n >= 5]
-    rho_rt = stats.spearmanr(ps.test_no, ps.rt_mean).statistic
-    fig, (a, b) = plt.subplots(1, 2, figsize=(14, 4.8))
-    for ax, k, lab, col in [(a, "rt", "反應時間 (ms)", COL["Wa1"]), (b, "acc", "正確率", COL["Wa2"])]:
-        ax.fill_between(s.index, s[f"{k}_q1"], s[f"{k}_q3"], color=col, alpha=0.18, lw=0, label="四分位距")
-        ax.plot(s.index, s[f"{k}_med"], color=col, marker="o", lw=2.4, label="中位數")
-        for x, n in s.n.items():
-            ax.text(x, ax.get_ylim()[0], f"n={n}", ha="center", va="bottom", fontsize=8, color=MUTED)
-        ax.set(xlabel="第幾次做 Stroop", ylabel=lab)
-        ax.legend(frameon=False)
-    a.set_title(f"反應時間隨施測次數下降（Spearman ρ = {rho_rt:.2f}）")
-    b.set_title("正確率接近滿分（天花板效應）")
-    fig.suptitle("練習效應：只列出有 ≥ 5 人的次數", color=INK, y=1.02)
-    fig.tight_layout()
-    _save(fig, "practice_curve.png")
 
 
 def env_collinearity():
@@ -293,8 +275,11 @@ def power_curve():
     ns = np.arange(5, 61)
     fig, ax = plt.subplots(figsize=(10, 5.4))
     items = [("fatigue_now", "自覺疲勞", COL["Avg"]), ("accuracy", "Stroop 正確率", COL["Wa2"]),
-             ("rt_mean", "Stroop 反應時間", COL["Wa1"])]
+             ("rt_mean", "Stroop 反應時間", COL["Wa1"]), ("hr", "心率", INK),
+             ("log_rmssd", "HRV", "#9b5fc0")]
     for k, lab, c in items:
+        if k not in eff.index or not np.isfinite(eff.loc[k, "d_z"]) or eff.loc[k, "d_z"] == 0:
+            continue
         dz = abs(eff.loc[k, "d_z"])
         pw = [p.power(effect_size=dz, nobs=n, alpha=0.05) for n in ns]
         n80 = int(np.ceil(p.solve_power(effect_size=dz, alpha=0.05, power=0.8)))
@@ -337,8 +322,6 @@ BOOK = [
     ("stroop_conditions", "Stroop 測驗效度", "中性、一致、不一致三種情境的反應時間。",
      "每位學生的不一致題比中性題慢（配對差值中位數 27 ms、平均 16 ms），但未達顯著（Friedman p = 0.076；Wilcoxon p = 0.18）。每種情境只有 8 題，"
      "干擾效應本身不明顯，這也是干擾分數信度低、不宜作為主要結果的原因；建議增加題數。"),
-    ("practice_curve", "練習效應", "反應時間與正確率隨施測次數的變化。",
-     "反應時間在前幾次快速下降、之後趨於穩定，所以所有 Stroop 模型都控制「第幾次施測」；正確率有天花板效應。"),
     ("D. 檢定選擇與相關", None, None, None),
     ("assumption_qq", "常態性檢查", "每個結果變項的「高 − 低 CO₂」配對差值 Q-Q 圖。",
      "8 個結果變項中 7 個必須用無母數，另一個因 n < 15 建議用無母數。"),
@@ -351,12 +334,14 @@ BOOK = [
      "疲勞的方向一致（11 人中 8 人上升），反應時間沒有一致方向。"),
     ("effect_size_forest", "效果量（Hedges' g）", "各結果變項高 vs 低 CO₂ 的 g 與 r_rb，含學生層級 bootstrap 95% CI。",
      "疲勞 g = +0.53、正確率 g = −0.69（中等）；反應時間小且 CI 含 0；負對照接近 0。"),
-    ("stroop_vs_co2", "CO₂ 與 Stroop 反應時間（場次層級）", "各場次平均反應時間對 CO₂，以及練習效應。",
-     "場次間的差異主要來自練習效應，而不是 CO₂。"),
+    ("stroop_vs_co2", "CO₂ 與 Stroop 反應時間（場次層級）", "各場次平均反應時間對 Wa1、Wa2 的 CO₂。",
+     "場次平均反應時間與 CO₂ 沒有一致的關係。"),
     ("temp_rh_adjustment", "溫濕度調整前後的 CO₂ 係數", "各結果變項在不調整、加溫度、加溫度與濕度時的 CO₂ 係數。",
      "疲勞的係數始終為正，但加入濕度後信賴區間變寬並碰到 0。"),
     ("hr_vs_co2", "心率與 CO₂ 的時間變化", "每 5 分鐘的平均心率與 CO₂。",
      "下午 CO₂ 上升時心率常同時下降，但這也可能是坐定後的自然下降，控制時間後效應不穩定。"),
+    ("hrv_vs_co2", "CO₂ 與心率變異度（HRV）", "配戴者內 CO₂ 與 log RMSSD 的關係，以及三種篩選門檻下的 LMM 效果。",
+     "CO₂ 較高時 RMSSD 略低；主要分析未達顯著，最嚴格門檻下達顯著。"),
     ("model_comparison", "感測器比較（ΔAIC）", "用 Wa1、Wa2、兩臺平均分別建模，加入 CO₂ 後的 AIC 改善。",
      "三種暴露來源之間的差距都小於 2，分不出哪一臺比較好。"),
     ("seating_simulation", "座位表是否有幫助", "假設學生吸到的是最近那臺的濃度，模擬座位表能否改善模型。",
@@ -394,7 +379,7 @@ def export_numbered():
 
 def main():
     AC.build()
-    for f in (data_coverage, co2_exposure, ac_inference, ecg_quality_map, stroop_conditions, practice_curve, env_collinearity,
+    for f in (data_coverage, co2_exposure, ac_inference, ecg_quality_map, stroop_conditions, env_collinearity,
               temp_rh_adjustment, ventilation_fits, power_curve):
         f()
         print("完成", f.__name__)

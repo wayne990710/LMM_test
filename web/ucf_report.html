@@ -224,18 +224,18 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
     <dt class="claim">論點</dt><dd class="claim">分析前必須先排除不可信的資料，否則後面所有效果量都可能被污染。</dd>
     <dt>論據</dt><dd><ol>
       <li>疲勞量表的注意力檢核題：7 份未通過，全部來自同一位學生，已排除。</li>
-      <li>心電貼片改以 5 分鐘時段篩選：心率用乾淨心跳 ≥ 80% 的時段，HRV 用 ≥ 95% 的時段（633 個時段中分別有 309 個、113 個可用）。理由：同一段錄音內，異常拍每多 1%，心率只偏高約 0.2 bpm，RMSSD 卻高約 3%。更早的版本曾出現由假心率（94.7% 異常拍、約 150 bpm）造成的偽顯著，已修正。</li>
+      <li>心電貼片以 5 分鐘時段篩選：乾淨心跳 ≥ 80% 的時段才使用（633 個時段中 309 個可用於心率、309 個可算出 HRV）。HRV 再以 Malik 準則剔除相鄰 RR 相差 &gt; 20% 的差值，並把異常拍比例放進模型當共變量；≥ 90%、≥ 95% 留作敏感度分析。理由：異常拍每多 1%，心率只偏高約 0.2 bpm，RMSSD 卻高約 3%。異常拍比例與 CO₂ 幾乎無關（ρ = −0.13），殘留雜訊不會偽造出 CO₂ 的效果。</li>
       <li>兩臺 CO₂ 感測器 r = 0.97；但 09-24 起差距方向反轉（Wa1 從較低變成較高 62–216 ppm）。</li></ol></dd>
-    <dt>推論</dt><dd>只用可信資料；CO₂ 一律用兩臺平均。後面的等級檢定不受固定偏差影響，所以感測器的差距不會改變無母數結論。</dd>
+    <dt>推論</dt><dd>只用可信資料；CO₂ 一律用兩臺平均（心率／HRV 每節固定一個來源：兩臺都收錄 ≥ 90% 用平均，否則用完整的那一臺）。後面的等級檢定不受固定偏差影響，所以感測器的差距不會改變無母數結論。</dd>
     <dt>限制</dt><dd>感測器差距反轉的原因未查明；手環沒有品質欄位，只能用數值合理性判斷。</dd>
   </dl>
-  <p class="handoff"><b>→ 交給步驟 ②</b>　82 筆 Stroop 人次、69 份疲勞問卷、62 筆逐人心率節次。</p>
+  <p class="handoff"><b>→ 交給步驟 ②</b>　82 筆 Stroop 人次、69 份疲勞問卷、62 筆逐人心率節次、309 個 HRV 時段。</p>
 
   <h3 id="s2">步驟 ② 檢定選擇：每一組資料該用母數還是無母數？</h3>
   <dl class="argue">
     <dt class="claim">論點</dt><dd class="claim">12 人的重複測量資料，大多數結果變項都應以無母數檢定為主要證據。</dd>
     <dt>論據</dt><dd>下方的判斷規則、決策表與 Q-Q 圖。</dd>
-    <dt>推論</dt><dd>8 個結果變項中，6 個「必須」用無母數；心率「建議」用無母數；HRV 只有 2 人，不做推論。以 Wilcoxon 符號等級檢定作為主要檢定，配對 t 檢定只列出來對照。</dd>
+    <dt>推論</dt><dd>7 個結果變項中，5 個「必須」用無母數；心率與 HRV「建議」用無母數。以 Wilcoxon 符號等級檢定作為主要檢定，配對 t 檢定只列出來對照。</dd>
     <dt>限制</dt><dd>n &lt; 15 時，常態檢定本身的檢定力不足。「SW p &gt; .05」不能證明是常態，只能說沒有被否定。</dd>
   </dl>
   <div class="rules">
@@ -251,15 +251,14 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
       <tr><td>Stroop 反應時間</td><td>比率</td><td class="n">12</td><td class="n">0.08</td><td class="n">−1.48</td><td class="n">1</td><td class="n">0%</td><td class="no">必須</td><td>非常態、偏態、離群值</td></tr>
       <tr><td>Stroop 干擾分數</td><td>差異分數</td><td class="n">12</td><td class="n">0.19</td><td class="n">+1.07</td><td class="n">2</td><td class="n">0%</td><td class="no">必須</td><td>偏態、2 個離群值</td></tr>
       <tr><td>Stroop 正確率</td><td>比例</td><td class="n">12</td><td class="n">0.32</td><td class="n">−0.15</td><td class="n">0</td><td class="n"><strong>38%</strong></td><td class="no">必須</td><td>天花板效應</td></tr>
-      <tr><td>心率（每節平均）</td><td>比率</td><td class="n">11</td><td class="n">0.75</td><td class="n">−0.62</td><td class="n">0</td><td class="n">0%</td><td class="mid">建議</td><td>n = 11</td></tr>
-      <tr><td>反應時間（第 4 次以後）</td><td>比率</td><td class="n">10</td><td class="n">0.10</td><td class="n">−1.37</td><td class="n">1</td><td class="n">0%</td><td class="no">必須</td><td>偏態、離群值</td></tr>
+      <tr><td>心率（每節平均）</td><td>比率</td><td class="n">11</td><td class="n">0.37</td><td class="n">+0.09</td><td class="n">0</td><td class="n">0%</td><td class="mid">建議</td><td>n = 11</td></tr>
+      <tr><td>HRV log(RMSSD)（每節平均）</td><td>連續（對數）</td><td class="n">5</td><td class="n">0.66</td><td class="n">−0.63</td><td class="n">0</td><td class="n">0%</td><td class="mid">建議</td><td>n = 5</td></tr>
       <tr><td>FSS（負對照）</td><td>順序</td><td class="n">11</td><td class="n">0.045</td><td class="n">−1.68</td><td class="n">1</td><td class="n">10%</td><td class="no">必須</td><td>順序、非常態</td></tr>
-      <tr><td>HRV log(RMSSD)</td><td>連續</td><td class="n"><strong>2</strong></td><td class="n">—</td><td class="n">—</td><td class="n">0</td><td class="n">0%</td><td>—</td><td>只有 2 人，不做推論</td></tr>
     </tbody>
   </table></div>
   <figure class="plate">
-    <div class="frame"><img src="figures/assumption_qq.svg" alt="八個結果變項配對差值的常態 Q-Q 圖"></div>
-    <figcaption>點偏離虛線代表偏離常態；橘色標題為「必須用無母數」。疲勞的差值其實接近常態（p = 0.62），判定為必須，是因為它是 1–7 分的順序尺度。</figcaption>
+    <div class="frame"><img src="figures/assumption_qq.svg" alt="七個結果變項配對差值的常態 Q-Q 圖"></div>
+    <figcaption>點偏離虛線代表偏離常態；橘色標題為「必須用無母數」。疲勞的差值其實接近常態（p = 0.62），判定為必須，是因為它是 1–7 分的順序尺度。HRV 只有 5 人，因為大多數場次的貼片無法對應到學生（09-21 ～ 09-23 的字母代號沒有對照表）。</figcaption>
   </figure>
   <p class="prose">環境變項（節次層級，n = 9）：CO₂、溫度、濕度的 Shapiro p 分別為 0.86、0.08、0.68，但只有 9 個點，而且 CO₂ 呈「上午低、下午高」的兩群分布，所以變項之間的相關一律用 <strong>Spearman 等級相關</strong>。</p>
   <p class="handoff"><b>→ 交給步驟 ③</b>　以 Wilcoxon 為主檢定、以 Hedges' g 為效果量。</p>
@@ -268,18 +267,18 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
   <dl class="argue">
     <dt class="claim">論點</dt><dd class="claim">CO₂ 升高時，自覺疲勞上升（中等效果）、正確率下降（中等效果），反應時間沒有變慢。</dd>
     <dt>論據</dt><dd>下方效果量表與森林圖。比較方式：每位學生在 CO₂ ≥ 1000 ppm（環境部室內空氣品質標準）與 &lt; 1000 ppm 的節次各取一個平均，形成配對資料。</dd>
-    <dt>推論</dt><dd>只看 p 值會得到「全部不顯著」（Holm 校正後最小 p = 0.32）；但效果量顯示疲勞與正確率是中等效果，而且 bootstrap 區間不含 0。在 n ≈ 11 時，「不顯著」主要反映檢定力不足：若 d_z = 0.61，n = 11 的檢定力只有 45%，要 80% 需要約 23 人。</dd>
-    <dt>限制</dt><dd>疲勞與正確率的 Wilcoxon p 只是邊緣（0.063、0.067），Holm 校正後都不顯著；高、低 CO₂ 的比較沒有控制施測順序，留給步驟 ④。</dd>
+    <dt>推論</dt><dd>只看 p 值會得到「全部不顯著」（6 個主要變項 Holm 校正後最小 p = 0.38）；但效果量顯示疲勞與正確率是中等效果，而且 bootstrap 區間不含 0。在 n ≈ 11 時，「不顯著」主要反映檢定力不足：若 d_z = 0.61，n = 11 的檢定力只有 45%，要 80% 需要約 24 人。</dd>
+    <dt>限制</dt><dd>疲勞與正確率的 Wilcoxon p 只是邊緣（0.063、0.067），Holm 校正後都不顯著；高、低 CO₂ 的比較沒有控制溫濕度，留給步驟 ④。</dd>
   </dl>
   <div class="tbl"><table>
     <thead><tr><th>結果變項</th><th>n</th><th>上升／下降</th><th>HL 中位差</th><th>Wilcoxon p</th><th>Holm p</th><th>Hedges' g_av（95% CI）</th><th>大小</th><th>r_rb（95% CI）</th></tr></thead>
     <tbody>
-      <tr class="hl"><td><strong>自覺疲勞</strong></td><td class="n">11</td><td class="n">8／3</td><td class="n"><strong>+0.85 分</strong></td><td class="n">0.063</td><td class="n">0.32</td><td class="n"><strong>+0.53</strong>（0.05, 1.18）</td><td>中</td><td class="n">+0.64（0.06, 1.00）</td></tr>
-      <tr class="hl"><td><strong>Stroop 正確率</strong></td><td class="n">12</td><td class="n">3／8</td><td class="n"><strong>−2.7%</strong></td><td class="n">0.067</td><td class="n">0.32</td><td class="n"><strong>−0.69</strong>（−1.47, −0.11）</td><td>中</td><td class="n">−0.64（−1.00, −0.02）</td></tr>
-      <tr><td>Stroop 反應時間</td><td class="n">12</td><td class="n">4／8</td><td class="n">−14.5 ms</td><td class="n">0.34</td><td class="n">0.68</td><td class="n">−0.24（−0.67, 0.11）</td><td>小</td><td class="n">−0.33（−0.87, 0.31）</td></tr>
+      <tr class="hl"><td><strong>自覺疲勞</strong></td><td class="n">11</td><td class="n">8／3</td><td class="n"><strong>+0.85 分</strong></td><td class="n">0.063</td><td class="n">0.38</td><td class="n"><strong>+0.53</strong>（0.05, 1.18）</td><td>中</td><td class="n">+0.64（0.06, 1.00）</td></tr>
+      <tr class="hl"><td><strong>Stroop 正確率</strong></td><td class="n">12</td><td class="n">3／8</td><td class="n"><strong>−2.7%</strong></td><td class="n">0.067</td><td class="n">0.38</td><td class="n"><strong>−0.69</strong>（−1.47, −0.11）</td><td>中</td><td class="n">−0.64（−1.00, −0.02）</td></tr>
+      <tr><td>Stroop 反應時間</td><td class="n">12</td><td class="n">4／8</td><td class="n">−14.5 ms</td><td class="n">0.34</td><td class="n">0.64</td><td class="n">−0.24（−0.67, 0.11）</td><td>小</td><td class="n">−0.33（−0.87, 0.31）</td></tr>
       <tr><td>Stroop 干擾分數</td><td class="n">12</td><td class="n">3／9</td><td class="n">−13.9 ms</td><td class="n">0.20</td><td class="n">0.61</td><td class="n">−0.18（−0.88, 0.48）</td><td>微小</td><td class="n">−0.44（−1.00, 0.21）</td></tr>
-      <tr><td>心率（每節平均）</td><td class="n">11</td><td class="n">6／5</td><td class="n">−2.4 bpm</td><td class="n">0.52</td><td class="n">0.68</td><td class="n">−0.31（−0.83, 0.37）</td><td>小</td><td class="n">−0.24（−0.82, 0.45）</td></tr>
-      <tr><td>反應時間（第 4 次以後，敏感度）</td><td class="n">10</td><td class="n">2／8</td><td class="n">−26 ms</td><td class="n">0.11</td><td class="n">—</td><td class="n">−0.31（−0.82, 0.04）</td><td>小</td><td class="n">−0.60（−1.00, 0.09）</td></tr>
+      <tr><td>心率（每節平均）</td><td class="n">11</td><td class="n">5／6</td><td class="n">−2.8 bpm</td><td class="n">0.32</td><td class="n">0.64</td><td class="n">−0.33（−0.95, 0.36）</td><td>小</td><td class="n">−0.36（−0.85, 0.33）</td></tr>
+      <tr><td>HRV log(RMSSD)（每節平均）</td><td class="n">5</td><td class="n">4／1</td><td class="n">+0.14</td><td class="n">0.13</td><td class="n">0.50</td><td class="n">+0.26（0.06, 4.20）</td><td>小</td><td class="n">+0.87（0.20, 1.00）</td></tr>
       <tr><td><strong>FSS（負對照）</strong></td><td class="n">11</td><td class="n">7／3</td><td class="n">+0.06</td><td class="n">0.56</td><td class="n">—</td><td class="n"><strong>+0.01</strong>（−0.16, 0.18）</td><td>微小</td><td class="n">+0.24（−0.45, 1.00）</td></tr>
     </tbody>
   </table></div>
@@ -294,30 +293,32 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
       <li><strong>負對照通過</strong>：FSS 問的是「過去 24 小時」，理論上不該跟當下 CO₂ 有關。結果 g = 0.01，CI 很窄而且緊貼 0，排除了「學生在高 CO₂ 節次就是習慣填比較高分」的解釋。</li>
       <li><strong>正確率（新出現的訊號）</strong>：12 人中 8 人在高 CO₂ 時正確率較低，g = −0.69，與計畫書引用的 Gong et al. (2026)「CO₂ 使正確率下降」方向一致。</li>
       <li><strong>反應時間（沒有變慢）</strong>：方向甚至略偏「變快」（g = −0.24）。配合第 3 點，高 CO₂ 時「稍快但較不準」，可能是速度—正確率的取捨，但證據不足以下定論。</li>
+      <li><strong>心率、HRV</strong>：心率 g = −0.33（小，CI 含 0）。HRV g = +0.26，5 人中 4 人在高 CO₂ 時 HRV 較高，但人數太少，CI 很寬。</li>
     </ol>
   </div>
-  <p class="handoff"><b>→ 交給步驟 ④</b>　疲勞與正確率有訊號，需要用控制了施測順序和溫濕度的模型確認。</p>
+  <p class="handoff"><b>→ 交給步驟 ④</b>　疲勞與正確率有訊號，需要用 LMM 並控制溫濕度來確認。</p>
 
   <h3 id="s4">步驟 ④ 參數模型確認：效果量能不能跨方法重現？</h3>
   <dl class="argue">
-    <dt class="claim">論點</dt><dd class="claim">疲勞的效果量在兩種方法中一致；正確率的效果在控制施測順序後減弱。</dd>
+    <dt class="claim">論點</dt><dd class="claim">疲勞的效果量在兩種方法中一致；正確率的效果在 LMM 中減弱。</dd>
     <dt>論據</dt><dd>下表。LMM 版的效果量 d₁₀₀₀ = 每升高 1000 ppm 的係數 ÷ 個人內殘差標準差。</dd>
-    <dt>推論</dt><dd><strong>疲勞</strong>：無母數 g 與 LMM 的 d₁₀₀₀ 幾乎相同（0.53 vs 0.51），而且 LMM 的 CI 不含 0 → 效果穩健。<strong>正確率</strong>：控制施測順序後從 −0.69 降到 −0.21，CI 含 0 → 部分訊號來自「測驗做越多次正確率越低」（個人內 ρ = −0.28），只能列為待確認。<strong>反應時間</strong>：d₁₀₀₀ 的 CI（−0.41 ～ 0.34）排除了中等以上的效果，「沒有變慢」是有根據的結論，不只是不顯著。</dd>
-    <dt>限制</dt><dd>疲勞 LMM 加入溫度與濕度後，係數變為 0.072（p = 0.078）；只用溫濕度、不放 CO₂ 的模型配適更好（AIC 低 4.5）。CO₂、溫度、濕度是同一個「關窗開冷氣」狀態的三個面向（CO₂ 與溫度 ρ = −0.87），無法分開。</dd>
+    <dt>推論</dt><dd><strong>疲勞</strong>：無母數 g 與 LMM 的 d₁₀₀₀ 幾乎相同（0.53 vs 0.51），而且 LMM 的 CI 不含 0 → 效果穩健（LMM：0.063 分／100 ppm，p = 0.009，ΔAIC −4.3）。<strong>正確率</strong>：LMM 中從 −0.69 降到 −0.23，CI 含 0（LMM p = 0.21）→ 只能列為待確認。<strong>反應時間</strong>：LMM −0.30 ms／100 ppm（p = 0.79）；d₁₀₀₀ 的 CI（−0.42 ～ 0.32）排除了中等以上的效果，「沒有變慢」是有根據的結論，不只是不顯著。</dd>
+    <dt>限制</dt><dd>疲勞 LMM 加入溫度與濕度後，係數變為 0.078（p = 0.06）；只用溫濕度、不放 CO₂ 的模型，AIC 與只用 CO₂ 的模型只差 0.8，兩者無法區分。CO₂、溫度、濕度是同一個「關窗開冷氣」狀態的三個面向（CO₂ 與溫度 ρ = −0.87），無法分開。</dd>
   </dl>
   <div class="tbl"><table>
     <thead><tr><th>結果變項</th><th>無母數 g_av</th><th>LMM d₁₀₀₀（95% CI）</th><th>控制了什麼</th><th>兩法一致？</th></tr></thead>
     <tbody>
-      <tr><td>自覺疲勞</td><td class="n">+0.53</td><td class="n"><strong>+0.51</strong>（0.13, 0.90）</td><td>睡眠、填寫次數</td><td class="yes">✔ 一致</td></tr>
-      <tr><td>正確率</td><td class="n">−0.69</td><td class="n">−0.21（−0.58, 0.16）</td><td>施測次數</td><td class="mid">△ 方向一致、強度減弱</td></tr>
-      <tr><td>反應時間</td><td class="n">−0.24</td><td class="n">−0.04（−0.41, 0.34）</td><td>施測次數</td><td class="yes">✔ 都接近 0</td></tr>
-      <tr><td>干擾分數</td><td class="n">−0.18</td><td class="n">+0.33（−0.05, 0.70）</td><td>施測次數</td><td class="no">✘ 方向相反，不採信</td></tr>
-      <tr><td>心率</td><td class="n">−0.31</td><td class="n">−0.00（−0.78, 0.78）</td><td>—</td><td class="no">✘ 不穩定，不採信</td></tr>
+      <tr><td>自覺疲勞</td><td class="n">+0.53</td><td class="n"><strong>+0.51</strong>（0.13, 0.90）</td><td>控制變項</td><td class="yes">✔ 一致</td></tr>
+      <tr><td>正確率</td><td class="n">−0.69</td><td class="n">−0.23（−0.60, 0.13）</td><td>—</td><td class="mid">△ 方向一致、強度減弱</td></tr>
+      <tr><td>反應時間</td><td class="n">−0.24</td><td class="n">−0.05（−0.42, 0.32）</td><td>—</td><td class="yes">✔ 都接近 0</td></tr>
+      <tr><td>干擾分數</td><td class="n">−0.18</td><td class="n">+0.28（−0.08, 0.65）</td><td>—</td><td class="no">✘ 方向相反，不採信</td></tr>
+      <tr><td>心率（每節平均）</td><td class="n">−0.33</td><td class="n">+0.10（−0.56, 0.75）</td><td>—</td><td class="no">✘ 不穩定（節次內分析見 ⑤-2）</td></tr>
+      <tr><td>HRV（每節平均）</td><td class="n">+0.26</td><td class="n">+1.06（0.05, 2.08）</td><td>—</td><td class="mid">△ 方向一致，只有 5 人</td></tr>
     </tbody>
   </table></div>
   <figure class="plate">
     <div class="frame"><img src="figures/correlation_heatmap.svg" alt="變項間的整體與個人內 Spearman 相關矩陣"></div>
-    <figcaption>左：整體相關（含學生之間的差異）。右：個人內相關（每位學生減去自己的平均）。CO₂ 與疲勞的個人內 ρ = +0.39；CO₂ 與溫度 ρ = −0.87。</figcaption>
+    <figcaption>9 個變項：CO₂、溫度、濕度、心率、HRV、自覺疲勞、反應時間、干擾分數、正確率。左：整體相關（含學生之間的差異）。右：個人內相關（每位學生減去自己的平均）。CO₂ 與疲勞的個人內 ρ = +0.39；濕度與疲勞 ρ = −0.41；心率與 HRV ρ = −0.55；CO₂ 與溫度 ρ = −0.87。心率 27 人次（10 人）、HRV 15 人次（5 人）。</figcaption>
   </figure>
   <p class="handoff"><b>→ 交給步驟 ⑤</b>　唯一跨方法穩健的是 CO₂ → 疲勞。接下來要問：疲勞有沒有把 CO₂ 的影響傳到認知表現？</p>
 
@@ -326,13 +327,13 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
     <dt class="claim">論點</dt><dd class="claim">CO₂ → 疲勞成立；疲勞 → 反應時間不成立，所以中介鏈不成立。</dd>
     <dt>論據</dt><dd>Piecewise SEM：每條方程都是學生隨機截距 LMM，以學生為單位 bootstrap 2,000 次。模型 A（n = 65 人次、11 人）：
       <ol>
-        <li>CO₂ → 疲勞 β = <strong>+0.36</strong>，95% CI 0.008 ～ 0.166 分／100 ppm <span class="yes">✔</span>，已控制溫度、濕度、睡眠</li>
-        <li>疲勞 → 反應時間 β = −0.15，CI −46 ～ 11 ms <span class="no">✘</span></li>
-        <li>間接效果 CO₂ → 疲勞 → 反應時間 = −0.88 ms，CI −6.1 ～ 1.1 <span class="no">✘</span></li>
-        <li>模型適配 Fisher's C = 17.8，df = 10，p = 0.059（勉強可接受）</li>
+        <li>CO₂ → 疲勞 β = <strong>+0.36</strong>，95% CI 0.008 ～ 0.166 分／100 ppm <span class="yes">✔</span>，已控制溫度、濕度與控制變項</li>
+        <li>疲勞 → 反應時間 β = −0.11，CI −45 ～ 14 ms <span class="no">✘</span></li>
+        <li>間接效果 CO₂ → 疲勞 → 反應時間 = −0.64 ms，CI −5.9 ～ 1.4 <span class="no">✘</span></li>
+        <li>模型適配 Fisher's C = 12.7，df = 8，p = 0.12（可接受）</li>
       </ol></dd>
     <dt>推論</dt><dd>疲勞上升是真的，但沒有轉化成反應變慢。這與 Snow et al. (2018)「主觀與客觀指標不同步」的觀察相呼應，只是方向相反：本研究是主觀先動、客觀（反應時間）沒動。</dd>
-    <dt>限制</dt><dd>「CO₂ → 疲勞 → 干擾分數」的 CI 雖然不含 0，但方向與理論相反（越累，干擾越小），而且干擾分數信度低（各情境只有 8 題），因此不採信。加入心率的模型 B 只有 20 人次、7 人，標準化係數超過 1（共線性），無法估計。</dd>
+    <dt>限制</dt><dd>疲勞 → 干擾分數（β = −0.20）與溫度 → 干擾分數（β = −0.56）雖然顯著，但方向與理論相反（越累，干擾越小），而且干擾分數信度低（各情境只有 8 題），因此不採信。加入施測前心率的模型 B 只有 19 人次、8 人，所有路徑的 bootstrap CI 都包含 0，不解讀。HRV 能對應到學生的只有 15 人次（5 人），沒有放進徑路模型。</dd>
   </dl>
   <figure class="plate">
     <div class="frame"><img src="figures/path_diagram.svg" alt="模型 A 與模型 B 的徑路圖"></div>
@@ -340,50 +341,61 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
   </figure>
 
   <h4>⑤-1 完整徑路係數：模型 A</h4>
-  <p class="prose">n = 65 人次、11 人；Fisher's C = 17.8，df = 10，p = 0.059。<span class="yes">✔</span> 表示以學生為單位的 bootstrap 95% CI 不含 0。</p>
+  <p class="prose">n = 65 人次、11 人；Fisher's C = 12.7，df = 8，p = 0.12；疲勞方程已控制控制變項。<span class="yes">✔</span> 表示以學生為單位的 bootstrap 95% CI 不含 0。</p>
   <div class="tbl"><table>
     <thead><tr><th>結果 ← 預測變項</th><th>b（原單位）</th><th>標準化 β</th><th>LMM p</th><th>bootstrap 95% CI</th><th></th></tr></thead>
     <tbody>
       <tr class="hl"><td>疲勞 ← CO₂（每 100 ppm）</td><td class="n">+0.100</td><td class="n">+0.36</td><td class="n">0.044</td><td class="n">0.008 ～ 0.166</td><td class="yes">✔</td></tr>
       <tr><td>疲勞 ← 溫度 (°C)</td><td class="n">+0.801</td><td class="n">+0.25</td><td class="n">0.108</td><td class="n">−0.207 ～ 1.734</td><td></td></tr>
       <tr><td>疲勞 ← 濕度 (%)</td><td class="n">−0.066</td><td class="n">−0.16</td><td class="n">0.131</td><td class="n">−0.157 ～ 0.001</td><td></td></tr>
-      <tr><td>疲勞 ← 睡眠時數</td><td class="n">−0.643</td><td class="n">−0.45</td><td class="n">&lt; 0.001</td><td class="n">−1.030 ～ 0.153</td><td></td></tr>
-      <tr><td>疲勞 ← 睡眠品質</td><td class="n">−0.184</td><td class="n">−0.15</td><td class="n">0.247</td><td class="n">−0.709 ～ 0.204</td><td></td></tr>
-      <tr><td>反應時間 ← 疲勞</td><td class="n">−8.82 ms</td><td class="n">−0.15</td><td class="n">0.205</td><td class="n">−46.3 ～ 10.9</td><td></td></tr>
-      <tr><td>反應時間 ← CO₂</td><td class="n">+1.85 ms</td><td class="n">+0.12</td><td class="n">0.496</td><td class="n">−3.8 ～ 8.8</td><td></td></tr>
-      <tr><td>反應時間 ← 溫度</td><td class="n">+27.2 ms</td><td class="n">+0.15</td><td class="n">0.325</td><td class="n">−36.0 ～ 113.4</td><td></td></tr>
-      <tr><td>反應時間 ← 濕度</td><td class="n">−1.03 ms</td><td class="n">−0.04</td><td class="n">0.712</td><td class="n">−3.4 ～ 1.8</td><td></td></tr>
-      <tr><td>反應時間 ← 第幾次施測</td><td class="n">−6.58 ms</td><td class="n">−0.17</td><td class="n">0.083</td><td class="n">−11.07 ～ −0.07</td><td class="yes">✔</td></tr>
-      <tr><td>干擾分數 ← 疲勞</td><td class="n">−11.40 ms</td><td class="n">−0.25</td><td class="n">0.045</td><td class="n">−24.6 ～ −4.6</td><td class="yes">✔</td></tr>
-      <tr><td>干擾分數 ← CO₂</td><td class="n">−3.19 ms</td><td class="n">−0.25</td><td class="n">0.263</td><td class="n">−10.1 ～ 2.3</td><td></td></tr>
-      <tr><td>干擾分數 ← 溫度</td><td class="n">−71.8 ms</td><td class="n">−0.49</td><td class="n">0.017</td><td class="n">−148.5 ～ −3.7</td><td class="yes">✔</td></tr>
-      <tr><td>干擾分數 ← 濕度</td><td class="n">−3.34 ms</td><td class="n">−0.18</td><td class="n">0.271</td><td class="n">−11.7 ～ 3.2</td><td></td></tr>
-      <tr><td>干擾分數 ← 第幾次施測</td><td class="n">−7.95 ms</td><td class="n">−0.25</td><td class="n">0.049</td><td class="n">−16.2 ～ −2.1</td><td class="yes">✔</td></tr>
+      <tr><td>反應時間 ← 疲勞</td><td class="n">−6.38 ms</td><td class="n">−0.11</td><td class="n">0.361</td><td class="n">−45.2 ～ 14.1</td><td></td></tr>
+      <tr><td>反應時間 ← CO₂</td><td class="n">+2.17 ms</td><td class="n">+0.14</td><td class="n">0.435</td><td class="n">−3.3 ～ 8.8</td><td></td></tr>
+      <tr><td>反應時間 ← 溫度</td><td class="n">+19.0 ms</td><td class="n">+0.10</td><td class="n">0.495</td><td class="n">−42.2 ～ 106.3</td><td></td></tr>
+      <tr><td>反應時間 ← 濕度</td><td class="n">+1.46 ms</td><td class="n">+0.06</td><td class="n">0.551</td><td class="n">−1.5 ～ 4.3</td><td></td></tr>
+      <tr><td>干擾分數 ← 疲勞</td><td class="n">−8.85 ms</td><td class="n">−0.20</td><td class="n">0.112</td><td class="n">−24.0 ～ −1.9</td><td class="yes">✔</td></tr>
+      <tr><td>干擾分數 ← CO₂</td><td class="n">−2.92 ms</td><td class="n">−0.23</td><td class="n">0.320</td><td class="n">−9.1 ～ 2.7</td><td></td></tr>
+      <tr><td>干擾分數 ← 溫度</td><td class="n">−82.5 ms</td><td class="n">−0.56</td><td class="n">0.007</td><td class="n">−166.1 ～ −8.2</td><td class="yes">✔</td></tr>
+      <tr><td>干擾分數 ← 濕度</td><td class="n">−0.32 ms</td><td class="n">−0.02</td><td class="n">0.906</td><td class="n">−6.3 ～ 5.0</td><td></td></tr>
     </tbody>
   </table></div>
   <div class="tbl"><table>
     <thead><tr><th>間接效果</th><th>估計值</th><th>bootstrap 95% CI</th><th>bootstrap p</th></tr></thead>
     <tbody>
-      <tr><td>CO₂ → 疲勞 → 反應時間</td><td class="n">−0.88 ms</td><td class="n">−6.08 ～ 1.12</td><td class="n">0.66</td></tr>
-      <tr><td>CO₂ → 疲勞 → 干擾分數</td><td class="n">−1.14 ms</td><td class="n">−2.94 ～ −0.06</td><td class="n">0.035（方向與理論相反，不採信）</td></tr>
-      <tr><td>溫度 → 疲勞 → 反應時間</td><td class="n">−7.07 ms</td><td class="n">−64.1 ～ 11.9</td><td class="n">0.67</td></tr>
-      <tr><td>濕度 → 疲勞 → 反應時間</td><td class="n">+0.58 ms</td><td class="n">−1.19 ～ 3.45</td><td class="n">0.66</td></tr>
-      <tr><td>睡眠品質 → 疲勞 → 反應時間</td><td class="n">+1.62 ms</td><td class="n">−6.85 ～ 14.28</td><td class="n">0.94</td></tr>
+      <tr><td>CO₂ → 疲勞 → 反應時間</td><td class="n">−0.64 ms</td><td class="n">−5.89 ～ 1.40</td><td class="n">0.80</td></tr>
+      <tr><td>CO₂ → 疲勞 → 干擾分數</td><td class="n">−0.88 ms</td><td class="n">−2.87 ～ −0.02</td><td class="n">0.041（方向與理論相反，不採信）</td></tr>
+      <tr><td>溫度 → 疲勞 → 反應時間</td><td class="n">−5.11 ms</td><td class="n">−62.2 ～ 13.0</td><td class="n">0.78</td></tr>
+      <tr><td>濕度 → 疲勞 → 反應時間</td><td class="n">+0.42 ms</td><td class="n">−1.59 ～ 3.26</td><td class="n">0.80</td></tr>
     </tbody>
   </table></div>
   <p class="prose"><strong>模型 B</strong>（加入施測前 10 分鐘心率；n = 19 人次、8 人）：所有路徑的 bootstrap CI 都包含 0，樣本過小，全部不解讀。</p>
 
-  <h4>⑤-2 HRV 為什麼沒有進入徑路模型？</h4>
+  <h4>⑤-2 生理指標：心率與 HRV</h4>
   <dl class="argue">
-    <dt class="claim">論點</dt><dd class="claim">HRV 有計算，而且用的是正確的方法（逐拍 RR）；但能連到個別學生的 HRV 太少，無法放進徑路模型。手環的心率也不能換算成 HRV。</dd>
+    <dt class="claim">論點</dt><dd class="claim">同一節課內，CO₂ 上升時心率略降、HRV 沒有改變；CO₂ 較高的節次 HRV 較高，但無法與較涼、較乾的冷氣環境分開。</dd>
     <dt>論據</dt><dd><ol>
-      <li><strong>HRV 的來源</strong>：心電貼片的逐拍 RR 間隔，每 5 分鐘算一次 RMSSD，只用相鄰兩拍都正常的差值，而且時段內乾淨心跳須 ≥ 95%，共 113 窗。</li>
-      <li><strong>手環沒有 RR</strong>：207,690 個手環封包中，含 RR 間隔的是 0 個。</li>
-      <li><strong>手環的每秒心率不能代替 RR</strong>：同樣的換算方法，貼片的每秒心率算出的 RMSSD 與真值高度一致（93 窗，ρ = 0.96，約為真值 × 1.12）；手環的每秒心率算出的 RMSSD 中位數只有 5.4 ms，貼片的真值是 26.2 ms，低估約 80%。手環與貼片不是同一人同時配戴，這是兩組分布的比較；但手環的換算值低於幾乎所有貼片窗的真值。</li>
-      <li><strong>能連到學生的 HRV</strong>：研究代碼對照表只有 09-24 之後寫了貼片編號，再加上 HRV 只用乾淨心跳 ≥ 95% 的時段，只剩 6 位學生、85 窗；施測前 10 分鐘有 HRV、同一節也有疲勞和 Stroop 的，只有 4 人次、2 位學生。</li></ol></dd>
-    <dt>推論</dt><dd>2 人 4 筆無法估計含隨機截距的結構方程。HRV 目前只能在「裝置 × 節次」層級分析：控制上課經過時間後，CO₂ 每 100 ppm，log(RMSSD) −0.002（p = 0.95，83 窗）；加入溫度或溫濕度後仍接近 0（p ≥ 0.6）。</dd>
-    <dt>限制</dt><dd>「裝置 × 節次」無法區分是哪位學生，所以不能和疲勞、Stroop 連成路徑。</dd>
+      <li><strong>方法</strong>：5 分鐘窗，乾淨心跳 ≥ 80%；HRV（RMSSD，取對數）只用貼片逐拍 RR，經 Malik 20% 篩選，並以異常拍比例為共變量；所有模型控制上課經過時間；每節固定一個 CO₂ 來源。</li>
+      <li><strong>心率</strong>（節次內，配戴者 = 裝置 × 節次）：CO₂ 每 100 ppm −0.19 bpm（95% CI −0.38 ～ −0.01，p = 0.041；898 窗、119 位配戴者）。只用兩臺都有資料的窗 −0.21（p = 0.063）；加入溫度、濕度後 −0.17（p = 0.19）。</li>
+      <li><strong>HRV</strong>：見下表。</li>
+      <li><strong>手環不能換算 HRV</strong>：貼片每秒心率換算的 RMSSD 與逐拍真值高度相關（175 窗，ρ = 0.86，約為真值 × 1.25）；手環換算值中位數只有 5.4 ms，貼片真值為 25.7 ms，低估約 80%。207,690 個手環封包中，含 RR 間隔的是 0 個。手環與貼片不是同一人同時配戴，這是兩組分布的比較。</li></ol></dd>
+    <dt>推論</dt><dd>心率的效果很小（1000 ppm 約 2 bpm），加入溫濕度後不顯著。HRV 在節次內沒有變化；跨節次的正向結果控制溫度後仍成立，但加入濕度後消失。兩者都和疲勞一樣，無法與「開冷氣、關窗」的整體狀態分開。</dd>
+    <dt>限制</dt><dd>跨節次逐人分析只有 6 人：09-21 ～ 09-23 的貼片字母代號沒有對照表，補上就能增加資料。HRV 能同時對應到 Stroop 與疲勞的只有 15 人次（5 人），所以沒有放進徑路模型。</dd>
   </dl>
+  <div class="tbl"><table>
+    <thead><tr><th>HRV 分析</th><th>樣本</th><th>CO₂ 每 100 ppm 的 RMSSD 變化</th><th>p</th></tr></thead>
+    <tbody>
+      <tr class="hl"><td>節次內，≥ 80%（主要）</td><td>304 窗、53 位配戴者</td><td class="n">−1.4%（CI −3.5% ～ +0.8%）</td><td class="n">0.21</td></tr>
+      <tr><td>節次內，≥ 90%（敏感度）</td><td>181 窗、40 位</td><td class="n">−2.0%</td><td class="n">0.20</td></tr>
+      <tr><td>節次內，≥ 95%（敏感度）</td><td>112 窗、31 位</td><td class="n">−5.7%（CI −10.0% ～ −1.1%）</td><td class="n">0.016</td></tr>
+      <tr><td>跨節次，逐人 LMM</td><td>197 窗、6 人</td><td class="n">+2.6%（CI +0.8% ～ +4.5%）</td><td class="n">0.004</td></tr>
+      <tr><td>跨節次，逐人＋溫度</td><td>同上</td><td class="n">+2.4%</td><td class="n">0.041</td></tr>
+      <tr><td>跨節次，逐人＋溫度＋濕度</td><td>同上</td><td class="n">−0.5%</td><td class="n">0.74</td></tr>
+      <tr><td>節次平均</td><td>13 節</td><td class="n">Spearman ρ = +0.60</td><td class="n">0.029</td></tr>
+    </tbody>
+  </table></div>
+  <figure class="plate">
+    <div class="frame"><img src="figures/hrv_vs_co2.svg" alt="HRV 與 CO₂：節次內、跨節次與各模型效果"></div>
+    <figcaption>① 節次內：同一配戴者 CO₂ 較高的 5 分鐘時段，RMSSD 沒有一致變化。② 跨節次：13 節課的平均，CO₂ 較高的節次 RMSSD 較高。③ 各模型效果，藍＝節次內、橘＝跨節次，實心＝p &lt; .05。</figcaption>
+  </figure>
   <figure class="plate">
     <div class="frame"><img src="figures/hrv_conversion.svg" alt="真 RMSSD 與由每秒心率換算的 RMSSD 比較"></div>
     <figcaption>左：同一 5 分鐘窗，貼片逐拍 RR 的 RMSSD 與貼片每秒心率換算值。右：三種來源的 RMSSD 分布；手環的平滑心率把心跳間的變化抹掉了。</figcaption>
@@ -397,7 +409,7 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
       <li><strong>質量平衡擬合</strong>（Persily &amp; de Jonge, 2017）：12 段 CO₂ 上升曲線，R² ≥ 0.94，換氣率中位數 1.22 次／小時。</li>
       <li><strong>穩態推算</strong>：1000 ppm 所需換氣率 = 2,021 ÷ (1000 − 420) ≈ 3.5 次／小時。</li>
       <li><strong>情境模擬</strong>：一堂 50 分鐘的課，下課時疲勞增量從目前的 +0.49 分（95% 區間 0.09–0.78），降到 3.5 次／小時時的 +0.08 分（0.01–0.13）。</li>
-      <li><strong>驗證</strong>：留一節次交叉驗證，加入 CO₂ 後 RMSE 改善 4.2%。</li></ol></dd>
+      <li><strong>驗證</strong>：留一節次交叉驗證，加入 CO₂ 後 RMSE 改善 4.0%。</li></ol></dd>
     <dt>推論</dt><dd>模型適合比較群體層級的通風情境，不適合預測個別學生的分數（Riesterer et al., 2020）。</dd>
     <dt>限制</dt><dd>情境結果代表「關窗開冷氣」整體狀態的效果，不是單獨降低 CO₂ 的效果；開窗時的換氣率還沒有實測。</dd>
   </dl>
@@ -421,10 +433,10 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
     <thead><tr><th>研究問題</th><th>回答</th><th>證據強度</th><th>依據</th></tr></thead>
     <tbody>
       <tr><td><strong>問題一</strong>：CO₂ 與反應時間、生理訊號、自覺疲勞的動態關聯</td>
-        <td><strong>疲勞</strong>：CO₂ 越高越累，中等效果（g = 0.53，d₁₀₀₀ = 0.51）<br><strong>正確率</strong>：可能下降（g = −0.69），控制施測順序後減弱<br><strong>反應時間</strong>：沒有變慢，排除了中等以上的效果<br><strong>生理訊號</strong>：可信資料不足，無法回答</td>
-        <td><span class="stars">★★☆</span> 疲勞<br><span class="stars">★★★</span> 反應時間（無效應）<br><span class="stars">★☆☆</span> 正確率<br><span class="stars">☆☆☆</span> 生理</td><td>③④⑤</td></tr>
+        <td><strong>疲勞</strong>：CO₂ 越高越累，中等效果（g = 0.53，d₁₀₀₀ = 0.51）<br><strong>正確率</strong>：可能下降，中等效果（g = −0.69），LMM 中減弱<br><strong>反應時間</strong>：沒有變慢，排除了中等以上的效果<br><strong>心率</strong>：同一節課內略降（−0.19 bpm／100 ppm，p = 0.04），幅度很小<br><strong>HRV</strong>：同一節課內沒有變化；CO₂ 較高的節次 HRV 較高（ρ = +0.60），但與冷氣造成的較涼、較乾環境分不開</td>
+        <td><span class="stars">★★☆</span> 疲勞<br><span class="stars">★★★</span> 反應時間（無效應）<br><span class="stars">★☆☆</span> 正確率<br><span class="stars">★☆☆</span> 心率<br><span class="stars">★☆☆</span> HRV</td><td>③④⑤</td></tr>
       <tr><td><strong>問題二</strong>：如何建構有效預測認知表現的 LMM</td>
-        <td>以學生為隨機截距、控制睡眠與施測次數的疲勞 LMM，斜率 0.063 分／100 ppm（bootstrap CI 0.011–0.101）。適合群體情境預測；個人預測力有限（留一節次改善 4%）</td>
+        <td>以學生為隨機截距、已控制控制變項的疲勞 LMM，斜率 0.063 分／100 ppm（bootstrap CI 0.011–0.100）。適合群體情境預測；個人預測力有限（留一節次改善 4%）</td>
         <td><span class="stars">★★☆</span></td><td>④⑥</td></tr>
       <tr><td><strong>問題三</strong>：具體可行的環境改善策略</td>
         <td>開冷氣時換氣量需達約 3.5 次／小時（目前約 1.2）；或改用定時開窗，但開窗時的換氣率需要先實測</td>
@@ -438,11 +450,12 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
   <div class="tbl"><table>
     <thead><tr><th>可能的質疑</th><th>回應</th><th>仍存在的風險</th></tr></thead>
     <tbody>
-      <tr><td>「疲勞上升是因為下午比較累，不是 CO₂」</td><td>09-24 之後有多節「上午開冷氣」，CO₂ 與上午／下午的相關從 0.93 降到 0.76；加入上午／下午後，係數 0.072 幾乎不變</td><td>p 從 0.009 變成 0.083，證據變弱</td></tr>
-      <tr><td>「是溫濕度，不是 CO₂」</td><td>徑路模型控制溫濕度後，CO₂ → 疲勞仍成立</td><td>只用溫濕度的模型 AIC 更好，無法排除</td></tr>
+      <tr><td>「疲勞上升是因為下午比較累，不是 CO₂」</td><td>09-24 之後有多節「上午開冷氣」，CO₂ 與上午／下午的相關從 0.93 降到 0.76；加入上午／下午後，係數 0.066 幾乎不變</td><td>p 從 0.009 變成 0.10，證據變弱</td></tr>
+      <tr><td>「是溫濕度，不是 CO₂」</td><td>徑路模型控制溫濕度後，CO₂ → 疲勞仍成立</td><td>只用溫濕度的模型 AIC 與只用 CO₂ 相近，無法排除</td></tr>
+      <tr><td>「HRV 在高 CO₂ 節次較高，是 CO₂ 造成的」</td><td>節次內 CO₂ 上升時 HRV 沒有變化；跨節次的正向結果加入濕度後消失</td><td>只有 6 人能做逐人分析</td></tr>
       <tr><td>「學生只是習慣在某些節次填高分」</td><td>FSS 負對照 g = 0.01</td><td>單題自評仍可能受情境影響</td></tr>
       <tr><td>「多重比較，碰巧顯著」</td><td>已用 Holm 校正並如實報告（全部 &gt; 0.05）；改以效果量與跨方法一致性作為主要依據</td><td>正確率的訊號可能是偶然</td></tr>
-      <tr><td>「12 人太少」</td><td>用無母數＋學生層級 bootstrap，不依賴分配假設；並計算檢定力</td><td>疲勞的檢定力約 45%；要 80% 需約 23 人</td></tr>
+      <tr><td>「12 人太少」</td><td>用無母數＋學生層級 bootstrap，不依賴分配假設；並計算檢定力</td><td>疲勞的檢定力約 45%；要 80% 需約 24 人</td></tr>
       <tr><td>「CO₂ 量錯了」</td><td>兩臺 r = 0.97；等級檢定不受固定偏差影響</td><td>09-24 起差距反轉，原因未查</td></tr>
     </tbody>
   </table></div>
@@ -452,11 +465,11 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
 <section id="next">
   <h2>§6 下一步</h2>
   <ol class="next">
-    <li><strong>擴大疲勞的證據</strong>：目標 ≥ 23 人，或增加更多「上午 CO₂ 高、下午 CO₂ 低」的節次，讓疲勞效果的檢定力達到 80%。</li>
-    <li><strong>確認正確率的訊號</strong>：分析中固定控制施測次數；考慮把 Stroop 正式題增加到每種情境 16 題以上，降低天花板效應、提高干擾分數的信度。這需要提出計畫變更。</li>
+    <li><strong>擴大疲勞的證據</strong>：目標 ≥ 24 人（正確率約 21 人），或增加更多「上午 CO₂ 高、下午 CO₂ 低」的節次，讓疲勞效果的檢定力達到 80%。</li>
+    <li><strong>確認正確率的訊號</strong>：考慮把 Stroop 正式題增加到每種情境 16 題以上，降低天花板效應、提高干擾分數的信度。這需要提出計畫變更。</li>
     <li><strong>開窗衰減測試</strong>：開窗後記錄 10 分鐘的 CO₂ 下降，估出開窗時的換氣率，才能把「定時開窗」寫進守則。</li>
     <li><strong>感測器並排校正</strong>：查明 09-24 的差距反轉。</li>
-    <li><strong>心率資料</strong>：只保留穩定的貼片（E2603-10、E2605-04），並固定由同一位學生配戴同一個裝置。</li>
+    <li><strong>心率與 HRV 資料</strong>：補上 09-21 ～ 09-23 貼片字母代號與編號的對照表，把這段期間的 HRV 納入逐人分析（HRV 要達 80% 檢定力約需 11 人，目前 5 人）；只保留穩定的貼片（E2603-10、E2605-04），並固定由同一位學生配戴同一個裝置。</li>
   </ol>
 </section>
 
@@ -473,7 +486,7 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
       <tr><td>d₁₀₀₀</td><td>LMM 斜率 × 10 ÷ 個人內殘差標準差</td><td>每升高 1000 ppm 的標準化差異</td></tr>
       <tr><td>HL 中位差</td><td>所有 Walsh 平均的中位數</td><td>無母數的典型差異</td></tr>
       <tr><td>95% CI</td><td>以學生為單位 bootstrap 5,000 次（百分位法）</td><td>不假設常態</td></tr>
-      <tr><td>Holm 校正</td><td>主要家族（5 個結果變項）依 p 由小到大，依序乘上 5、4、3、2、1（Holm, 1979）</td><td>控制族系錯誤率</td></tr>
+      <tr><td>Holm 校正</td><td>主要家族（6 個結果變項：疲勞、反應時間、干擾分數、正確率、心率、HRV）依 p 由小到大，依序乘上 6、5、4、3、2、1（Holm, 1979）</td><td>控制族系錯誤率</td></tr>
     </tbody>
   </table></div>
 

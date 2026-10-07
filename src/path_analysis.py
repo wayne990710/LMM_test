@@ -1,13 +1,13 @@
 """徑路分析（piecewise SEM）：每條結構方程用「學生隨機截距」LMM 估計，間接效果用以學生為單位的 cluster bootstrap。
 
 模型 A（全部人次）：
-    疲勞      ~ CO2 + 溫度 + 濕度 + 睡眠時數 + 睡眠品質
-    反應時間  ~ 疲勞 + CO2 + 溫度 + 濕度 + 第幾次施測
-    干擾分數  ~ 疲勞 + CO2 + 溫度 + 濕度 + 第幾次施測
+    疲勞      ~ CO2 + 溫度 + 濕度（+ 睡眠時數、睡眠品質：控制變項，不繪出、不解讀）
+    反應時間  ~ 疲勞 + CO2 + 溫度 + 濕度
+    干擾分數  ~ 疲勞 + CO2 + 溫度 + 濕度
 模型 B（有可信心率的子樣本）：在 CO2 與疲勞之間加入「施測前 10 分鐘心率」
     心率      ~ CO2 + 溫度 + 濕度
-    疲勞      ~ 心率 + CO2 + 睡眠時數 + 睡眠品質
-    反應時間  ~ 疲勞 + 心率 + CO2 + 第幾次施測
+    疲勞      ~ 心率 + CO2（+ 睡眠控制變項）
+    反應時間  ~ 疲勞 + 心率 + CO2
 整體適配用 d-separation（Shipley's Fisher's C）：模型沒畫的路徑，加進去後應該不顯著。
 
 執行：python src/path_analysis.py（需先跑過 run_analysis.py 產生 data/private/ 的資料表）
@@ -25,22 +25,22 @@ RES = D.ROOT / "results"
 N_BOOT = 2000
 
 LABELS = {"co2h": "CO₂（每100 ppm）", "temp": "溫度 (°C)", "rh": "濕度 (%)", "sleep_h": "睡眠時數",
-          "sleep_q": "睡眠品質", "test_no": "第幾次施測", "fatigue_now": "自覺疲勞", "hr_pre": "施測前心率",
+          "sleep_q": "睡眠品質", "fatigue_now": "自覺疲勞", "hr_pre": "施測前心率",
+          "hr": "心率 (bpm)", "log_rmssd": "HRV log(RMSSD)", "accuracy": "正確率",
           "rt_mean": "反應時間 (ms)", "interference": "干擾分數 (ms)"}
 
 MODELS = {
     "A": {"eqs": {"fatigue_now": ["co2h", "temp", "rh", "sleep_h", "sleep_q"],
-                  "rt_mean": ["fatigue_now", "co2h", "temp", "rh", "test_no"],
-                  "interference": ["fatigue_now", "co2h", "temp", "rh", "test_no"]},
+                  "rt_mean": ["fatigue_now", "co2h", "temp", "rh"],
+                  "interference": ["fatigue_now", "co2h", "temp", "rh"]},
           # 模型沒畫的路徑（d-separation 檢驗）：(結果, 被省略的預測變項)
           "missing": [("rt_mean", "sleep_h"), ("rt_mean", "sleep_q"), ("interference", "sleep_h"),
-                      ("interference", "sleep_q"), ("fatigue_now", "test_no")],
+                      ("interference", "sleep_q")],
           "indirect": [("co2h", "fatigue_now", "rt_mean"), ("co2h", "fatigue_now", "interference"),
-                       ("temp", "fatigue_now", "rt_mean"), ("rh", "fatigue_now", "rt_mean"),
-                       ("sleep_q", "fatigue_now", "rt_mean")]},
+                       ("temp", "fatigue_now", "rt_mean"), ("rh", "fatigue_now", "rt_mean")]},
     "B": {"eqs": {"hr_pre": ["co2h", "temp", "rh"],
                   "fatigue_now": ["hr_pre", "co2h", "sleep_h", "sleep_q"],
-                  "rt_mean": ["fatigue_now", "hr_pre", "co2h", "test_no"]},
+                  "rt_mean": ["fatigue_now", "hr_pre", "co2h"]},
           "missing": [("fatigue_now", "temp"), ("fatigue_now", "rh"), ("rt_mean", "temp"), ("rt_mean", "rh"),
                       ("rt_mean", "sleep_q")],
           "indirect": [("co2h", "hr_pre", "rt_mean"), ("co2h", "hr_pre", "fatigue_now"),
@@ -68,6 +68,16 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = pre[(pre.win >= pre.t0 - pd.Timedelta(minutes=10)) & (pre.win < pre.t0)]
     hr_pre = pre.groupby(["student_id", "block"]).hr.mean().rename("hr_pre").reset_index()
     b = a.merge(hr_pre, on=["student_id", "block"]).reset_index(drop=True)
+
+    # 整節課的心率與 HRV（每位學生每節平均），給相關矩陣用；只有能對應到學生的節次才有
+    hs = hw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
+    hs = hs.groupby(["student_id", "block"]).hr.mean().rename("hr").reset_index()
+    rw = pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv", parse_dates=["win"])
+    rs = rw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
+    rs = rs.groupby(["student_id", "block"]).log_rmssd.mean().rename("log_rmssd").reset_index()
+    for t in (hs, rs):
+        t["student_id"] = t.student_id.astype(str)
+        a = a.merge(t, on=["student_id", "block"], how="left")
     return a, b
 
 

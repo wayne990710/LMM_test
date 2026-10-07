@@ -21,7 +21,7 @@ import models as M
 RES = D.ROOT / "results"
 C_OUT = 420.0          # 戶外 CO2（ppm）；臺北近年背景值約 420–430
 CLASS_MIN = 50
-FCOV = "resp_no + sleep_h + sleep_q"
+FCOV = "sleep_h + sleep_q"  # 睡眠為控制變項
 
 
 def _rise(t, css, lam, c0):

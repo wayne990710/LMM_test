@@ -83,7 +83,7 @@ def sensor_agreement(pair):
 
 def stroop_vs_co2(blk):
     b = blk.dropna(subset=["co2_Wa1", "co2_Wa2"], how="all")
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6))
 
     def label(ax, d, xcol):
         # 依橫軸排序後，標籤交錯放在點的上方與下方，避免相鄰場次的字疊在一起
@@ -91,18 +91,12 @@ def stroop_vs_co2(blk):
             ax.annotate(r.block, (r[xcol], r.rt_mean), textcoords="offset points",
                         xytext=(6, 7) if k % 2 == 0 else (6, -13), fontsize=8, color=MUTED)
 
-    for ax, s in zip(axes[:2], ["Wa1", "Wa2"]):
+    for ax, s in zip(axes, ["Wa1", "Wa2"]):
         bb = b.dropna(subset=[f"co2_{s}"])
         se = bb.rt_sd / np.sqrt(bb.n_students)
         ax.errorbar(bb[f"co2_{s}"], bb.rt_mean, yerr=se, fmt="o", ms=8, color=COL[s], capsize=3)
         label(ax, bb, f"co2_{s}")
         ax.set(xlabel=f"{s} 施測時 CO₂ (ppm)", ylabel="平均反應時間 (ms)", title=f"{s}：各場次平均 ± SE")
-    ax = axes[2]
-    d = blk.dropna(subset=["mean_test_no", "rt_mean"])
-    order = d.sort_values("mean_test_no")   # 依橫軸排序再連線；依日期連線會在 09-23 PM → 09-24 AM 往回折
-    ax.plot(order.mean_test_no, order.rt_mean, "o-", color=INK, ms=8)
-    label(ax, d, "mean_test_no")
-    ax.set(xlabel="平均第幾次做 Stroop", ylabel="平均反應時間 (ms)", title="練習效應：做越多次越快")
     fig.tight_layout()
     _save(fig, "stroop_vs_co2.png")
 
@@ -221,10 +215,11 @@ def nonparametric(plot: dict, summary: pd.DataFrame):
 
 
 PATH_POS = {
-    "A": {"co2h": (0, 4), "temp": (0, 2.9), "rh": (0, 1.8), "sleep_h": (0, 0.7), "sleep_q": (0, -0.4),
-          "fatigue_now": (1.45, 1.1), "test_no": (2.9, 2.0), "rt_mean": (2.9, 3.4), "interference": (2.9, 0.6)},
-    "B": {"co2h": (0, 4), "temp": (0, 2.9), "rh": (0, 1.8), "sleep_h": (0, 0.7), "sleep_q": (0, -0.4),
-          "hr_pre": (1.45, 3.5), "fatigue_now": (1.45, 1.0), "test_no": (2.9, 3.6), "rt_mean": (2.9, 2.0)},
+    # 睡眠時數／品質是控制變項：有放進方程式，但不畫出
+    "A": {"co2h": (0, 3.8), "temp": (0, 2.2), "rh": (0, 0.6),
+          "fatigue_now": (1.45, 2.2), "rt_mean": (2.9, 3.4), "interference": (2.9, 1.0)},
+    "B": {"co2h": (0, 3.8), "temp": (0, 2.2), "rh": (0, 0.6),
+          "hr_pre": (1.45, 3.5), "fatigue_now": (1.45, 1.0), "rt_mean": (2.9, 2.2)},
 }
 # 研究假設的路徑：一律畫出；其他控制路徑只有在 bootstrap 顯著時才畫（完整數值見 path_coefficients.csv）
 HYPOTHESIZED = {"A": {("co2h", "fatigue_now"), ("fatigue_now", "rt_mean"), ("fatigue_now", "interference"),
@@ -252,6 +247,8 @@ def path_diagram(paths: pd.DataFrame, fit: pd.DataFrame, labels: dict, exo_corr:
                     fontweight="bold" if key else "normal")
         hidden = 0
         for _, r in pm.iterrows():
+            if r["from"] not in pos or r["to"] not in pos:  # 控制變項的路徑不畫
+                continue
             sig = r.boot_ci_low > 0 or r.boot_ci_high < 0
             if (r["from"], r["to"]) not in HYPOTHESIZED[name] and not sig:
                 hidden += 1
@@ -278,11 +275,11 @@ def path_diagram(paths: pd.DataFrame, fit: pd.DataFrame, labels: dict, exo_corr:
                         fontsize=9, color=COL["Wa1"], ha="right", va="center",
                         bbox=dict(fc="#fcfcfb", ec="none", pad=0.5))
         warn = "" if name == "A" else "\n⚠ 樣本太小，所有路徑的 bootstrap CI 都包含 0，不解讀"
-        title = ("模型 A：CO₂ → 自覺疲勞 → Stroop（控制溫濕度、睡眠、第幾次施測）" if name == "A"
+        title = ("模型 A：CO₂ → 自覺疲勞 → Stroop（控制溫濕度）" if name == "A"
                  else "模型 B：CO₂ → 施測前心率 → 疲勞 → 反應時間（子樣本）")
         ax.set_title(f"{title}\nn = {int(f.n)} 人次、{int(f.students)} 人；Fisher's C = {f.fisher_C:.1f}"
                      f"（df = {int(f.df)}，p = {f.p:.2f}）{warn}", fontsize=11, color=INK)
-        ax.text(1.45, -0.85, f"另有 {hidden} 條控制路徑不顯著、未畫出（見 path_coefficients.csv）",
+        ax.text(1.45, -0.85, f"另有 {hidden} 條溫濕度路徑不顯著、未畫出（見 path_coefficients.csv）",
                 ha="center", fontsize=9, color=MUTED)
     fig.text(0.5, 0.005, "β = 標準化係數。粗黑實線：以學生為單位 bootstrap 95% CI 不含 0；灰虛線：含 0。"
              "藍色雙箭頭：外生變項間的相關。Fisher's C 的 p > .05 表示未畫的路徑與資料不衝突。",
@@ -303,7 +300,7 @@ def make_all(co2, pair, blk, hw, res, trials, seat_sim, np_plot=None, np_sum=Non
     hr_vs_co2(hw)
 
 
-def correlation_heatmap(mats: dict, labels: list[str], n: int, students: int):
+def correlation_heatmap(mats: dict, labels: list[str], n: int, students: int, sub: dict | None = None):
     """發散色階：藍 = 負相關、紅 = 正相關、中點淺灰；格內數字為 ρ，* 為 p < .05。"""
     from matplotlib.colors import LinearSegmentedColormap
     cmap = LinearSegmentedColormap.from_list("div", ["#2a78d6", "#eeede9", "#e34948"])
@@ -328,7 +325,9 @@ def correlation_heatmap(mats: dict, labels: list[str], n: int, students: int):
             sp.set_visible(False)
         ax.set_title(title, fontsize=11, color=INK)
     fig.colorbar(im, ax=axes, shrink=0.7, label="Spearman ρ")
-    fig.suptitle(f"變項間相關（n = {n} 人次、{students} 人；* p < .05，未校正多重比較）", color=INK, y=0.98)
+    extra = "；".join(f"{k}只有 {m} 人次（{s} 人）" for k, (m, s) in (sub or {}).items())
+    fig.suptitle(f"變項間相關（n = {n} 人次、{students} 人；{extra}；逐對刪除；* p < .05，未校正多重比較）",
+                 color=INK, y=0.98, fontsize=11)
     _save(fig, "correlation_heatmap.png")
 
 
@@ -511,3 +510,51 @@ def hrv_conversion(m: pd.DataFrame, out: dict, polar_rmssd: np.ndarray):
     bx.grid(axis="x", visible=False)
     fig.tight_layout()
     _save(fig, "hrv_conversion.png")
+
+
+def hrv_vs_co2(rw: pd.DataFrame, main: pd.DataFrame, sess: pd.DataFrame):
+    """HRV 主要結果。左：節次內（同一配戴者 CO₂ 較高的時段）；中：節次平均；右：各模型的效果與 95% CI。"""
+    fig, (a, c, b) = plt.subplots(1, 3, figsize=(19, 5.2), gridspec_kw={"width_ratios": [1.1, 1, 1.25]})
+    d = rw[rw.clean >= D.HRV_MIN_CLEAN].dropna(subset=["co2_Sess"]).copy()
+    d["x"] = d.co2_Sess - d.groupby("wearer").co2_Sess.transform("mean")
+    d["y"] = (d.log_rmssd - d.groupby("wearer").log_rmssd.transform("mean")) * 100
+    d = d[d.groupby("wearer").x.transform("std") > 0]
+    a.scatter(d.x, d.y, s=12, color=COL["Avg"], alpha=0.35, edgecolors="none")
+    bins = pd.qcut(d.x, 8, duplicates="drop")
+    g = d.groupby(bins, observed=True).agg(x=("x", "mean"), y=("y", "mean"), se=("y", "sem"))
+    a.errorbar(g.x, g.y, yerr=1.96 * g.se, fmt="o-", color=INK, ms=6, capsize=3, label="分 8 箱平均 ± 95% CI")
+    a.axhline(0, color=MUTED, lw=1)
+    a.axvline(0, color=MUTED, lw=1)
+    a.set(xlabel="CO₂，相對該配戴者本節平均 (ppm)", ylabel="log RMSSD，相對本節平均（≈ %）",
+          title=f"① 節次內：同一節課 CO₂ 上升時\n{len(d)} 個 5 分鐘時段、{d.wearer.nunique()} 位配戴者")
+    a.legend(frameon=False, fontsize=9, loc="upper right")
+    pm = sess.index.str.endswith("PM")
+    for flag, mk in ((False, "o"), (True, "s")):
+        ss = sess[pm == flag]
+        c.scatter(ss.co2, np.exp(ss.log_rmssd), s=60 + 12 * ss.wearers, marker=mk, color=COL["Wa2"] if flag else COL["Wa1"],
+                  edgecolors="#fcfcfb", zorder=3, label="下午" if flag else "上午")
+    for ses, r in sess.iterrows():
+        c.annotate(ses, (r.co2, np.exp(r.log_rmssd)), textcoords="offset points", xytext=(6, 4), fontsize=8, color=MUTED)
+    sr = main[main.level == "節次平均（Spearman）"].iloc[0]
+    c.set(xlabel="節次平均 CO₂ (ppm)", ylabel="節次平均 RMSSD（幾何平均，ms）",
+          title=f"② 跨節次：{int(sr.n)} 節課的平均\nSpearman ρ = {sr.rho:+.2f}，p = {sr.p:.3f}（點越大＝配戴者越多）")
+    c.legend(frameon=False, fontsize=9)
+    h = main[main.outcome.str.startswith("HRV") & main.beta.notna()].reset_index(drop=True)
+    lab = {"none": "", "+temp": "＋溫度", "+temp+rh": "＋溫度＋濕度"}
+    y = np.arange(len(h))[::-1]
+    for yi, (_, r) in zip(y, h.iterrows()):
+        sig = r.p < 0.05
+        col = COL["Wa1"] if r.level == "節次內" else COL["Wa2"]
+        b.errorbar(r.pct_per_100ppm, yi, xerr=[[r.pct_per_100ppm - r.pct_ci_low], [r.pct_ci_high - r.pct_per_100ppm]],
+                   fmt="o", ms=8, capsize=4, color=col, mfc=col if sig else "#fcfcfb", mew=2)
+        b.text(h.pct_ci_high.max() + 0.6, yi, f"{r.pct_per_100ppm:+.1f}%  p = {r.p:.3f}{' *' if sig else ''}",
+               va="center", fontsize=9, color=INK)
+    b.axvline(0, color=MUTED, lw=1)
+    b.set_yticks(y, [f"{r.level}｜{r.threshold.replace('時段乾淨拍 ', '')}{lab[r.adjust]}\n{int(r.n)} 時段、{int(r.groups)} "
+                     f"{'人' if '逐人' in r.level else '位配戴者'}" for _, r in h.iterrows()], fontsize=8.5)
+    b.set_xlim(h.pct_ci_low.min() - 1, h.pct_ci_high.max() + 9)
+    b.set(xlabel="CO₂ 每增加 100 ppm，RMSSD 的變化 (%)",
+          title="③ LMM 效果（控制上課經過時間、異常拍比例）\n藍＝節次內，橘＝跨節次；實心＝p < .05")
+    b.grid(axis="y", visible=False)
+    fig.tight_layout()
+    _save(fig, "hrv_vs_co2.png")

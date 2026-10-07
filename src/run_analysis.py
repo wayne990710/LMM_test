@@ -117,7 +117,7 @@ def main():
     pseudo = D.pseudonyms(set(trials.Student_ID) | set(fat.student_id))
     ps = add_exposures(D.stroop_person_sessions(trials, co2))
     ps["student"] = ps.student_id.map(pseudo)
-    # 睡眠（試前調查）併進 Stroop：同一區塊的問卷
+    # 疲勞（同一區塊的問卷）併進 Stroop，供徑路分析使用；睡眠為控制變項，一併帶入
     sleep = fat[fat.attention_ok].groupby(["student_id", "block"])[["sleep_h", "sleep_q", "fatigue_now"]].mean()
     ps = ps.merge(sleep, left_on=["student_id", "block"], right_index=True, how="left")
     ps.to_csv(D.PRIVATE_DIR / "stroop_person_sessions.csv", index=False, encoding="utf-8-sig")
@@ -126,15 +126,10 @@ def main():
     res = []
     for y, name in [("rt_mean", "Stroop 平均反應時間 (ms)"), ("interference", "Stroop 干擾分數 (ms)"),
                     ("accuracy", "Stroop 正確率")]:
-        res.append(compare(both, y, "student", "test_no", name, "人次"))
+        res.append(compare(both, y, "student", "", name, "人次"))
     # 敏感度：再控制溫濕度
-    res.append(compare(both, "rt_mean", "student", "test_no", "Stroop 平均反應時間（+溫濕度）", "人次",
+    res.append(compare(both, "rt_mean", "student", "", "Stroop 平均反應時間（+溫濕度）", "人次",
                        cv=False, extra=" + temp_{s} + rh_{s}"))
-
-    # 敏感度：再控制睡眠時數與品質（計畫書的共變量）
-    bs = both.dropna(subset=["sleep_h", "sleep_q"]).reset_index(drop=True)
-    res.append(compare(bs, "rt_mean", "student", "test_no + sleep_h + sleep_q", "Stroop 平均反應時間（+睡眠）",
-                       "人次", cv=False))
 
     tr = D.add_trial_env(trials, ps)
     tr = add_exposures(tr.dropna(subset=["co2_Wa1", "co2_Wa2"]))
@@ -144,8 +139,8 @@ def main():
     tr["cong"] = (tr.condition == "congruent").astype(int)
     trial_rows = []
     for s in EXPOSURES:
-        r = M.fit_lmm(f"log_rt ~ co2h_{s} * incong + co2h_{s} * cong + test_no", tr, "student")
-        r0 = M.fit_lmm("log_rt ~ incong + cong + test_no", tr, "student")
+        r = M.fit_lmm(f"log_rt ~ co2h_{s} * incong + co2h_{s} * cong", tr, "student")
+        r0 = M.fit_lmm("log_rt ~ incong + cong", tr, "student")
         r2m, r2c = M.nakagawa_r2(r)
         for term, lab in [(f"co2h_{s}", "CO2 主效應（中性題，log RT）"), (f"co2h_{s}:incong", "CO2 × 不一致（干擾）")]:
             trial_rows.append({"outcome": lab, "unit": "單題", "exposure": s, "n": len(tr), "groups": tr.student.nunique(),
@@ -158,7 +153,7 @@ def main():
 
     # 補充：Wa1 單獨可多用 09-21 上午那一場（Wa2 當時沒資料）
     wa1_all = ps.dropna(subset=["co2_Wa1"]).reset_index(drop=True)
-    r = M.fit_lmm("rt_mean ~ co2h_Wa1 + test_no", wa1_all, "student")
+    r = M.fit_lmm("rt_mean ~ co2h_Wa1", wa1_all, "student")
     wa1_extra = {"outcome": "Stroop 平均反應時間（Wa1 全部場次）", "unit": "人次", "exposure": "Wa1",
                  "n": len(wa1_all), "groups": wa1_all.student.nunique(), **M.coef_row(r, "co2h_Wa1")}
     res.append(pd.DataFrame([wa1_extra]))
@@ -169,7 +164,7 @@ def main():
     fat.to_csv(D.PRIVATE_DIR / "fatigue_with_co2.csv", index=False, encoding="utf-8-sig")
     fat_ok = fat[fat.attention_ok]
     fboth = fat_ok.dropna(subset=["co2_Wa1", "co2_Wa2"]).reset_index(drop=True)
-    fcov = "resp_no + sleep_h + sleep_q"
+    fcov = "sleep_h + sleep_q"  # 睡眠為控制變項（只當共變量，不另外報告）
     res.append(compare(fboth, "fatigue_now", "student", fcov, "自覺疲勞（現在，1–7）", "人次"))
     # 負對照：FSS 問的是「過去 24 小時」，不該跟填寫當下的 CO2 有關；若有關代表有別的混淆
     res.append(compare(fboth, "fss", "student", fcov, "FSS 過去 24 小時（負對照）", "人次", cv=False))
@@ -188,29 +183,48 @@ def main():
     if os.environ.get("SKIP_SEATING") == "1" and (RES / "seating_simulation.csv").exists():
         seat_sim = pd.read_csv(RES / "seating_simulation.csv")
     else:
-        seat_ex = pd.DataFrame([ST.exhaustive(both, "rt_mean", "test_no"),
+        seat_ex = pd.DataFrame([ST.exhaustive(both, "rt_mean", "1"),
                                 ST.exhaustive(fboth, "fatigue_now", fcov)])
         seat_ex.round(4).to_csv(RES / "seating_exhaustive.csv", index=False, encoding="utf-8-sig")
-        seat_sim = pd.concat([ST.simulate(both, "rt_mean", "test_no"),
+        seat_sim = pd.concat([ST.simulate(both, "rt_mean", "1"),
                               ST.simulate(fboth, "fatigue_now", fcov, betas=(0, 0.1, 0.2, 0.4))])
         seat_sim.round(3).to_csv(RES / "seating_simulation.csv", index=False, encoding="utf-8-sig")
 
-    # ---------- 4. 心率（5 分鐘）與 HRV
+    # ---------- 4. 心率（5 分鐘）與 HRV：主要變項
     hr = D.load_hr_seconds()
-    hw = add_exposures(D.add_window_env(D.hr_windows(hr), co2))
+    hw = add_exposures(D.add_session_co2(D.add_window_env(D.hr_windows(hr), co2)))
     hw.to_csv(D.PRIVATE_DIR / "hr_5min_windows.csv", index=False, encoding="utf-8-sig")
     hwb = hw.dropna(subset=["co2_Wa1", "co2_Wa2"]).reset_index(drop=True)
     res.append(compare(hwb, "hr", "wearer", "C(device_type)", "心率 (bpm)，未控制時間", "5 分鐘", repeats=5))
     res.append(compare(hwb, "hr", "wearer", "elapsed_min + C(device_type)", "心率 (bpm)，控制上課經過時間",
                        "5 分鐘", repeats=5))
 
-    rw = add_exposures(D.add_window_env(D.rmssd_windows(), co2))
+    # HRV：時段乾淨拍 ≥ 80% + Malik 20% 剔除錯拍 + 異常拍比例當共變量（見 data.py）
+    rw = add_exposures(D.add_session_co2(D.add_window_env(D.rmssd_windows(), co2)))
+    rw["log_rmssd"] = np.log(rw.rmssd)
     rw.to_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv", index=False, encoding="utf-8-sig")
     rwb = rw.dropna(subset=["co2_Wa1", "co2_Wa2"]).reset_index(drop=True)
-    rwb["log_rmssd"] = np.log(rwb.rmssd)
-    res.append(compare(rwb, "log_rmssd", "wearer", "", "HRV log(RMSSD)，未控制時間", "5 分鐘", repeats=5))
-    res.append(compare(rwb, "log_rmssd", "wearer", "elapsed_min", "HRV log(RMSSD)，控制上課經過時間", "5 分鐘",
+    res.append(compare(rwb, "log_rmssd", "wearer", "bad", "HRV log(RMSSD)，未控制時間", "5 分鐘", repeats=5))
+    res.append(compare(rwb, "log_rmssd", "wearer", "elapsed_min + bad", "HRV log(RMSSD)，控制上課經過時間", "5 分鐘",
                        repeats=5))
+
+    # 主要 HR／HRV 結果：每節固定 CO2 來源（co2_Sess），可納入只有一臺有資料的節次；HRV 再以 90%／95% 做敏感度
+    # 「配戴者」= 裝置 × 節次，所以這裡的 CO2 效果是「同一節課內」CO2 上升時的變化
+    phys = []
+    hs = hw.dropna(subset=["co2_Sess"]).reset_index(drop=True)
+    r = M.fit_lmm("hr ~ co2h_Sess + elapsed_min + C(device_type)", hs, "wearer")
+    phys.append({"outcome": "心率 (bpm)", "level": "節次內", "threshold": "貼片時段乾淨拍 ≥ 80%", "adjust": "none",
+                 "n": len(hs), "groups": hs.wearer.nunique(), **M.coef_row(r, "co2h_Sess")})
+    for th in (D.HRV_MIN_CLEAN,) + D.HRV_SENSITIVITY:
+        d = rw[rw.clean >= th].dropna(subset=["co2_Sess"]).reset_index(drop=True)
+        r = M.fit_lmm("log_rmssd ~ co2h_Sess + elapsed_min + bad", d, "wearer")
+        role = "（主要）" if th == D.HRV_MIN_CLEAN else "（敏感度）"
+        phys.append({"outcome": "HRV log(RMSSD)", "level": "節次內", "threshold": f"時段乾淨拍 ≥ {th:.0%}{role}",
+                     "adjust": "none", "n": len(d), "groups": d.wearer.nunique(), **M.coef_row(r, "co2h_Sess"),
+                     "bad_beta": r.fe_params["bad"], "bad_p": r.pvalues["bad"]})
+    rho_bad = stats.spearmanr(rw.co2_Sess, rw.bad, nan_policy="omit").statistic
+    pd.Series({"rho_co2_vs_bad_pct": rho_bad}, name="value").round(3).to_csv(RES / "hrv_bad_check.csv",
+                                                                             encoding="utf-8-sig")
 
     # ---------- 4b. 逐人生理：研究代碼對照表上有寫裝置編號的節次（09-24 起），字母代號需另附對照
     dm, block_info = D.load_code_table()
@@ -228,8 +242,28 @@ def main():
                            "5 分鐘", cv=False))
         prw = rwb.merge(dm[["wearer", "student"]], on="wearer")
         if prw.student.nunique() >= 3:
-            res.append(compare(prw, "log_rmssd", "student", "elapsed_min", "HRV log(RMSSD)，逐人（控制上課經過時間）",
+            res.append(compare(prw, "log_rmssd", "student", "elapsed_min + bad", "HRV log(RMSSD)，逐人（控制上課經過時間）",
                                "5 分鐘", cv=False))
+    # HRV 跨節次：能對應到學生的節次，以「學生」為隨機截距 → CO2 效果包含同一位學生在不同節次之間的差異
+    prs = rw.merge(dm[["wearer", "student"]], on="wearer").dropna(subset=["co2_Sess", "temp_Sess", "rh_Sess"])
+    for adj, extra in (("none", ""), ("+temp", " + temp_Sess"), ("+temp+rh", " + temp_Sess + rh_Sess")):
+        r = M.fit_lmm(f"log_rmssd ~ co2h_Sess + elapsed_min + bad{extra}", prs, "student")
+        phys.append({"outcome": "HRV log(RMSSD)", "level": "跨節次（逐人）", "threshold": "時段乾淨拍 ≥ 80%",
+                     "adjust": adj, "n": len(prs), "groups": prs.student.nunique(), **M.coef_row(r, "co2h_Sess")})
+    # 節次層級：所有配戴者每節平均（13 節）
+    sess = rw.dropna(subset=["co2_Sess"]).groupby("session").agg(co2=("co2_Sess", "mean"),
+                                                                 log_rmssd=("log_rmssd", "mean"),
+                                                                 wearers=("wearer", "nunique"))
+    sr = stats.spearmanr(sess.co2, sess.log_rmssd)
+    phys.append({"outcome": "HRV log(RMSSD)", "level": "節次平均（Spearman）", "threshold": "時段乾淨拍 ≥ 80%",
+                 "adjust": "none", "n": len(sess), "groups": len(sess), "rho": sr.statistic, "p": sr.pvalue})
+    phys = pd.DataFrame(phys)
+    hrv = phys.outcome.str.startswith("HRV") & phys.beta.notna()
+    for c, src in (("pct_per_100ppm", "beta"), ("pct_ci_low", "ci_low"), ("pct_ci_high", "ci_high")):
+        phys.loc[hrv, c] = (np.exp(phys.loc[hrv, src]) - 1) * 100
+    phys.round(4).to_csv(RES / "hr_hrv_main.csv", index=False, encoding="utf-8-sig")
+    sess.round(3).to_csv(RES / "hrv_by_session.csv", encoding="utf-8-sig")
+
     # 施測前 10 分鐘的心率：CO2 → 心率 → 反應時間
     pre = hw.merge(dm[["wearer", "student_id", "block"]], on="wearer")
     pre = pre.merge(ps[["student_id", "block", "t0"]], on=["student_id", "block"])
@@ -237,25 +271,24 @@ def main():
     hr_pre = pre.groupby(["student_id", "block"]).hr.mean().rename("hr_pre")
     med = both.merge(hr_pre, left_on=["student_id", "block"], right_index=True).reset_index(drop=True)
     if med.student.nunique() >= 3:
-        res.append(compare(med, "rt_mean", "student", "test_no + hr_pre", "反應時間（+施測前心率）", "人次", cv=False))
-        r = M.fit_lmm("hr_pre ~ co2h_Avg + test_no", med, "student")
+        res.append(compare(med, "rt_mean", "student", "hr_pre", "反應時間（+施測前心率）", "人次", cv=False))
+        r = M.fit_lmm("hr_pre ~ co2h_Avg", med, "student")
         res.append(pd.DataFrame([{"outcome": "施測前心率 ~ CO2", "unit": "人次", "exposure": "Avg", "n": len(med),
                                   "groups": med.student.nunique(), **M.coef_row(r, "co2h_Avg")}]))
 
     # ---------- 4c. 溫濕度：計畫書的共變量，且與冷氣（≈ CO2）一起變動
     env_rows, env_cor = env_adjust([
-        ("Stroop 平均反應時間", both, "rt_mean", "test_no", "student"),
-        ("Stroop 干擾分數", both, "interference", "test_no", "student"),
+        ("Stroop 平均反應時間", both, "rt_mean", "1", "student"),
+        ("Stroop 干擾分數", both, "interference", "1", "student"),
         ("自覺疲勞", fboth, "fatigue_now", fcov, "student"),
         ("心率（裝置×節次）", hwb, "hr", "elapsed_min + C(device_type)", "wearer"),
-        ("HRV log(RMSSD)（裝置×節次）", rwb, "log_rmssd", "elapsed_min", "wearer")])
+        ("HRV log(RMSSD)（裝置×節次）", rwb, "log_rmssd", "elapsed_min + bad", "wearer")])
     env_rows.round(4).to_csv(RES / "temp_humidity_adjustment.csv", index=False, encoding="utf-8-sig")
     env_cor.round(3).to_csv(RES / "temp_humidity_summary.csv", index=False, encoding="utf-8-sig")
 
     # ---------- 4d. 無母數分析（12 人、重複測量：以學生為單位）
     # 逐人心率用「每節課平均」，避免節次內 CO2 與上課經過時間一起上升的問題
     pws = pw.groupby(["student", "session"]).agg(hr=("hr", "mean"), co2_Avg=("co2_Avg", "mean")).reset_index()
-    late = both[both.test_no >= 4]  # 反應時間在第 4 次以後趨於穩定（練習效應）
     np_specs = [("自覺疲勞（兩臺平均）", fboth, "fatigue_now", "co2_Avg", "student", "block"),
                 ("自覺疲勞（Wa1）", fboth, "fatigue_now", "co2_Wa1", "student", "block"),
                 ("自覺疲勞（Wa2）", fboth, "fatigue_now", "co2_Wa2", "student", "block"),
@@ -264,10 +297,12 @@ def main():
                 ("Stroop 反應時間（兩臺平均）", both, "rt_mean", "co2_Avg", "student", "block"),
                 ("Stroop 反應時間（Wa1）", both, "rt_mean", "co2_Wa1", "student", "block"),
                 ("Stroop 反應時間（Wa2）", both, "rt_mean", "co2_Wa2", "student", "block"),
-                ("Stroop 反應時間，第 4 次以後（兩臺平均）", late, "rt_mean", "co2_Avg", "student", "block"),
                 ("Stroop 干擾分數（兩臺平均）", both, "interference", "co2_Avg", "student", "block"),
                 ("Stroop 正確率（兩臺平均）", both, "accuracy", "co2_Avg", "student", "block"),
-                ("心率，每節平均（兩臺平均）", pws, "hr", "co2_Avg", "student", "session")]
+                ("心率，每節平均（兩臺平均）", pws, "hr", "co2_Avg", "student", "session"),
+                # HRV：多數節次無法對應到學生，以「配戴者」為單位，比較同一位配戴者在不同 5 分鐘時段
+                ("HRV log(RMSSD)，配戴者內（每節固定來源）", rw.dropna(subset=["co2_Sess"]), "log_rmssd",
+                 "co2_Sess", "wearer", "win")]
     np_sum, np_plot = NP.run_all(np_specs)
     np_sum.round(4).to_csv(RES / "nonparametric.csv", index=False, encoding="utf-8-sig")
 
@@ -279,8 +314,7 @@ def main():
                                   co2_Wa2=("co2_Wa2", "mean"), temp_Wa1=("temp_Wa1", "mean"),
                                   temp_Wa2=("temp_Wa2", "mean"), rh_Wa1=("rh_Wa1", "mean"), rh_Wa2=("rh_Wa2", "mean"),
                                   rt_mean=("rt_mean", "mean"), rt_sd=("rt_mean", "std"),
-                                  interference=("interference", "mean"), accuracy=("accuracy", "mean"),
-                                  mean_test_no=("test_no", "mean")).reset_index()
+                                  interference=("interference", "mean"), accuracy=("accuracy", "mean")).reset_index()
     fb = fat_ok.groupby("block").agg(fatigue_n=("fatigue_now", "size"), fatigue_now=("fatigue_now", "mean"),
                                      fss=("fss", "mean"))
     blk = fb.reset_index().merge(blk, on="block", how="outer").merge(block_info, on="block", how="left")
@@ -288,12 +322,13 @@ def main():
     blk = blk.merge(hrb, left_on="block", right_index=True, how="left")
     blk.round(2).to_csv(RES / "session_summary.csv", index=False, encoding="utf-8-sig")
 
-    # 各區塊 CO2 與「第幾次施測」的相關：練習效應與 CO2 是否糾纏在一起
-    conf = {s: np.corrcoef(both[f"co2_{s}"], both.test_no)[0, 1] for s in ("Wa1", "Wa2")}
+    # CO2 與上午／下午是否糾纏在一起
+    conf = {}
     conf["slot_vs_co2_Wa1"] = np.corrcoef(both.co2_Wa1, (both.slot == "PM").astype(int))[0, 1]
     pd.Series(conf, name="r").round(3).to_csv(RES / "confounding_check.csv", encoding="utf-8-sig")
 
     F.make_all(co2, pair, blk, hw, allres, trials, seat_sim, np_plot, np_sum)
+    F.hrv_vs_co2(rw, phys, sess)
     print(allres.round(3).to_string())
 
     # ---------- 6. 讀上面寫出的資料表做：相關矩陣、徑路分析、模擬預測

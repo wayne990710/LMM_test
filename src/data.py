@@ -221,10 +221,15 @@ def good_ecg_wearers() -> set[str]:
 
 
 # 心電篩選改以「5 分鐘時段」為單位（不再整段錄音丟掉）：
-#   心率：時段內乾淨拍 ≥ 80% 即可。驗證：同一段錄音內，異常拍每多 1% 心率只偏高約 0.2 bpm。
-#   HRV ：時段內乾淨拍 ≥ 95%。驗證：同一段錄音內，異常拍每多 1% RMSSD 約高 3%（漏網的錯拍會灌高 HRV）。
+#   心率：時段內乾淨拍 ≥ 80%。驗證：同一段錄音內，異常拍每多 1% 心率只偏高約 0.2 bpm。
+#   HRV ：時段內乾淨拍 ≥ 80%，再加兩道處理，處理「漏網錯拍會灌高 RMSSD」的根本原因：
+#         (1) Malik 準則：相鄰兩拍 RR 相差 > 20% 的差值不計入 RMSSD（標準的異位拍／錯拍剔除）
+#         (2) 模型中放入該時段的異常拍比例（bad，%）當共變量
+#         90%、95% 只當敏感度分析（樣本會少一半以上）。
 HR_MIN_CLEAN = 0.80
-HRV_MIN_CLEAN = 0.95
+HRV_MIN_CLEAN = 0.80
+HRV_SENSITIVITY = (0.90, 0.95)
+MALIK_TOL = 0.20
 
 
 def usable_ecg_recordings() -> set[str]:
@@ -293,8 +298,14 @@ def hr_windows(hr: pd.DataFrame, minutes: int = 5, min_cover: float = 0.6) -> pd
     return w.reset_index(drop=True)
 
 
-def rmssd_windows(minutes: int = 5, min_good: float = HRV_MIN_CLEAN, min_beats: int = 150) -> pd.DataFrame:
-    """心電貼片每 5 分鐘的 RMSSD。只用相鄰兩拍都沒被標記為異常的差值；時段乾淨拍須 ≥ 95%。"""
+def rmssd_windows(minutes: int = 5, min_good: float = HRV_MIN_CLEAN, min_beats: int = 150,
+                  min_pairs: int = 60) -> pd.DataFrame:
+    """心電貼片每 5 分鐘的 RMSSD。
+
+    只用「相鄰兩拍都沒被標記異常、且兩拍 RR 相差 ≤ 20%（Malik）」的差值；
+    時段乾淨拍須 ≥ min_good。clean 為乾淨拍比例，bad 為異常拍百分比（模型共變量）。
+    """
+    usable = usable_ecg_recordings()
     rows = []
     for f in _ecg_files("ecgrr"):
         dev = f.name.split("_")[1]
@@ -303,22 +314,23 @@ def rmssd_windows(minutes: int = 5, min_good: float = HRV_MIN_CLEAN, min_beats: 
             continue
         d["win"] = d.time.dt.floor(f"{minutes}min")
         for win, g in d.groupby("win"):
-            good = g.bad.values == 0
-            if len(g) < min_beats or good.mean() < min_good:
+            if len(g) < min_beats:
                 continue
-            rr = g.rr_ms.values
-            pair = good[1:] & good[:-1]
-            diff = np.diff(rr)[pair]
-            if len(diff) < min_beats // 2:
-                continue
-            rows.append({"device": dev, "win": win, "rmssd": float(np.sqrt(np.mean(diff ** 2))),
-                         "hr_ecg": 60000 / rr[good].mean(), "good_pct": good.mean(), "beats": len(g)})
+            rr, good = g.rr_ms.values, g.bad.values == 0
+            dif = np.diff(rr)
+            keep = good[1:] & good[:-1] & (np.abs(dif) / rr[:-1] <= MALIK_TOL)
+            rows.append({"device": dev, "win": win, "clean": good.mean(), "beats": len(g), "pairs": int(keep.sum()),
+                         "rmssd": float(np.sqrt(np.mean(dif[keep] ** 2))) if keep.sum() >= min_pairs else np.nan,
+                         "hr_ecg": 60000 / rr[good].mean() if good.any() else np.nan})
     w = pd.DataFrame(rows).groupby(["device", "win"], as_index=False).mean()
     w["session"] = _session_id(w.win)
     w["wearer"] = w.device + " " + w.session
-    w = w[w.wearer.isin(usable_ecg_recordings())]
+    w = w[w.wearer.isin(usable)]
+    # 上課經過時間以該配戴者所有時段的起點起算，不受品質篩選影響
     w["elapsed_min"] = w.groupby("wearer").win.transform(lambda s: (s - s.min()).dt.total_seconds() / 60)
-    return w
+    w["bad"] = 100 * (1 - w.clean)
+    w = w[(w.clean >= min_good) & w.rmssd.notna()]
+    return w.reset_index(drop=True)
 
 
 def add_window_env(w: pd.DataFrame, co2: dict[str, pd.DataFrame], minutes: int = 5) -> pd.DataFrame:
@@ -329,6 +341,31 @@ def add_window_env(w: pd.DataFrame, co2: dict[str, pd.DataFrame], minutes: int =
         agg = cc.groupby("win").agg(**{f"co2_{s}": ("co2", "mean"), f"temp_{s}": ("temp", "mean"),
                                         f"rh_{s}": ("rh", "mean")}).reset_index()
         w = w.merge(agg, on="win", how="left")
+    return w
+
+
+def add_session_co2(w: pd.DataFrame, session_col: str = "session", min_cover: float = 0.9) -> pd.DataFrame:
+    """每節固定一個 CO2 來源（co2_Sess）：兩臺在該節都涵蓋 ≥ 90% 時段就用平均，否則用涵蓋完整的那一臺。
+
+    避免同一節課內因某臺斷線而在「平均」與「單臺」之間切換，造成人為跳動（兩臺有 ±200 ppm 的系統差）。
+    """
+    w = w.copy()
+    cov = w.groupby(session_col)[["co2_Wa1", "co2_Wa2"]].apply(lambda g: g.notna().mean())
+    src = {}
+    for ses, r in cov.iterrows():
+        if r.co2_Wa1 >= min_cover and r.co2_Wa2 >= min_cover:
+            src[ses] = "Avg"
+        else:
+            src[ses] = "Wa1" if r.co2_Wa1 >= r.co2_Wa2 else "Wa2"
+    avg = w[["co2_Wa1", "co2_Wa2"]].mean(axis=1, skipna=False)
+    pick = w[session_col].map(src)
+    w["co2_source"] = pick
+    w["co2_Sess"] = np.select([pick == "Avg", pick == "Wa1", pick == "Wa2"], [avg, w.co2_Wa1, w.co2_Wa2], np.nan)
+    for v in ("temp", "rh"):
+        a_ = w[[f"{v}_Wa1", f"{v}_Wa2"]].mean(axis=1, skipna=False)
+        w[f"{v}_Sess"] = np.select([pick == "Avg", pick == "Wa1", pick == "Wa2"], [a_, w[f"{v}_Wa1"], w[f"{v}_Wa2"]],
+                                   np.nan)
+    w["co2h_Sess"] = w.co2_Sess / 100
     return w
 
 

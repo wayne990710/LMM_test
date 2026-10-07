@@ -30,14 +30,14 @@ N_BOOT = 5000
 
 # (代號, 名稱, 尺度, 家族, LMM 共變項, 上限值)
 OUTCOMES = [
-    ("fatigue_now", "自覺疲勞（1–7）", "順序（單題 Likert）", "主要", "resp_no + sleep_h + sleep_q", 7),
-    ("rt_mean", "Stroop 反應時間 (ms)", "比率（連續）", "主要", "test_no", None),
-    ("interference", "Stroop 干擾分數 (ms)", "等距（差異分數）", "主要", "test_no", None),
-    ("accuracy", "Stroop 正確率", "比例（0–1）", "主要", "test_no", 1.0),
+    # 睡眠時數／品質只在疲勞模型當控制變項
+    ("fatigue_now", "自覺疲勞（1–7）", "順序（單題 Likert）", "主要", "sleep_h + sleep_q", 7),
+    ("rt_mean", "Stroop 反應時間 (ms)", "比率（連續）", "主要", "", None),
+    ("interference", "Stroop 干擾分數 (ms)", "等距（差異分數）", "主要", "", None),
+    ("accuracy", "Stroop 正確率", "比例（0–1）", "主要", "", 1.0),
     ("hr", "心率，每節平均 (bpm)", "比率（連續）", "主要", "", None),
-    ("rt_late", "反應時間，第 4 次以後 (ms)", "比率（連續）", "敏感度", "test_no", None),
-    ("fss", "FSS 過去 24 小時（負對照）", "順序（Likert 平均）", "負對照", "resp_no + sleep_h + sleep_q", 7),
-    ("log_rmssd", "HRV log(RMSSD)", "連續（對數）", "探索", "", None),
+    ("log_rmssd", "HRV log(RMSSD)，每節平均", "連續（對數）", "主要", "bad", None),
+    ("fss", "FSS 過去 24 小時（負對照）", "順序（Likert 平均）", "負對照", "sleep_h + sleep_q", 7),
 ]
 
 
@@ -60,18 +60,19 @@ def load_long() -> dict[str, pd.DataFrame]:
     out = {}
     for y in ("rt_mean", "interference", "accuracy"):
         out[y] = ps.assign(y=ps[y])
-    out["rt_late"] = ps[ps.test_no >= 4].assign(y=lambda d: d.rt_mean)
     for y in ("fatigue_now", "fss"):
         out[y] = fa.assign(y=fa[y])
     dm = _person_device_map()
-    hw = pd.read_csv(D.PRIVATE_DIR / "hr_5min_windows.csv").dropna(subset=["co2_Wa1", "co2_Wa2"])
+    # 生理：CO2 用「每節固定來源」（co2_Sess），只有一臺有資料的節次也能納入；欄名沿用 co2_Avg 方便後續共用
+    hw = pd.read_csv(D.PRIVATE_DIR / "hr_5min_windows.csv").dropna(subset=["co2_Sess"])
     hp = hw.merge(dm[["wearer", "student_id"]], on="wearer")
-    hp = hp.groupby(["student_id", "session"]).agg(y=("hr", "mean"), co2_Avg=("co2_Avg", "mean")).reset_index()
+    hp = hp.groupby(["student_id", "session"]).agg(y=("hr", "mean"), co2_Avg=("co2_Sess", "mean")).reset_index()
     out["hr"] = hp.rename(columns={"session": "block"})
-    rw = pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv").dropna(subset=["co2_Wa1", "co2_Wa2"])
+    rw = pd.read_csv(D.PRIVATE_DIR / "rmssd_5min_windows.csv").dropna(subset=["co2_Sess"])
+    rw = rw[rw.clean >= D.HRV_MIN_CLEAN]
     rp = rw.merge(dm[["wearer", "student_id"]], on="wearer")
-    rp = rp.groupby(["student_id", "session"]).agg(y=("rmssd", lambda v: np.log(v).mean()),
-                                                    co2_Avg=("co2_Avg", "mean")).reset_index()
+    rp = rp.groupby(["student_id", "session"]).agg(y=("log_rmssd", "mean"), bad=("bad", "mean"),
+                                                    co2_Avg=("co2_Sess", "mean")).reset_index()
     out["log_rmssd"] = rp.rename(columns={"session": "block"})
     for k, d in out.items():
         d = d.copy()

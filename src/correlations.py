@@ -12,8 +12,8 @@ import data as D
 import figures as F
 from path_analysis import LABELS, load_data
 
-VARS = ["co2h", "temp", "rh", "sleep_h", "sleep_q", "test_no", "fatigue_now", "rt_mean", "interference",
-        "accuracy"]
+# 睡眠為控制變項、第幾次施測不列入；心率與 HRV 為主要變項（只有能對應到學生的節次才有，逐對刪除）
+VARS = ["co2h", "temp", "rh", "hr", "log_rmssd", "fatigue_now", "rt_mean", "interference", "accuracy"]
 
 
 def spearman_matrix(df: pd.DataFrame, cols: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -33,9 +33,8 @@ def spearman_matrix(df: pd.DataFrame, cols: list[str]) -> tuple[pd.DataFrame, pd
 
 def main():
     a, _ = load_data()
-    LABELS.setdefault("accuracy", "正確率")
     overall_r, overall_p = spearman_matrix(a, VARS)
-    # 個人內：每位學生各自減去平均（睡眠、練習次數也會因人而變動，所以一起中心化）
+    # 個人內：每位學生各自減去平均
     within = a.copy()
     within[VARS] = a[VARS] - a.groupby("student")[VARS].transform("mean")
     within_r, within_p = spearman_matrix(within, VARS)
@@ -43,13 +42,16 @@ def main():
     for kind, r, p in (("overall", overall_r, overall_p), ("within_student", within_r, within_p)):
         for i, x in enumerate(VARS):
             for y in VARS[i + 1:]:
-                out.append({"kind": kind, "var1": x, "var2": y, "rho": r.loc[x, y], "p": p.loc[x, y]})
+                n = len((a if kind == "overall" else within)[[x, y]].dropna())
+                out.append({"kind": kind, "var1": x, "var2": y, "n": n, "rho": r.loc[x, y], "p": p.loc[x, y]})
     pd.DataFrame(out).round(4).to_csv(D.ROOT / "results" / "correlation_matrix.csv", index=False,
                                       encoding="utf-8-sig")
     F.correlation_heatmap({"整體 Spearman（含學生之間的差異）": (overall_r, overall_p),
                            "個人內 Spearman（每位學生減去自己的平均）": (within_r, within_p)},
-                          [LABELS[v] for v in VARS], n=len(a), students=a.student.nunique())
-    print(f"n = {len(a)} 人次，{a.student.nunique()} 人")
+                          [LABELS[v] for v in VARS], n=len(a), students=a.student.nunique(),
+                          sub={LABELS[v]: (int(a[v].notna().sum()), int(a.dropna(subset=[v]).student.nunique()))
+                               for v in ("hr", "log_rmssd")})
+    print(f"n = {len(a)} 人次，{a.student.nunique()} 人；心率 {a.hr.notna().sum()}、HRV {a.log_rmssd.notna().sum()} 人次")
 
 
 if __name__ == "__main__":
